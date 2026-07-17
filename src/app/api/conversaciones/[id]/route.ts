@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sesionActual, locationIdDeSesion } from '@/lib/auth'
 import { mensajesDeConversacion } from '@/lib/ghl/client'
-import { DEMO_MODE, obtenerConversacion } from '@/lib/demo/store'
+import { DEMO_MODE, STANDALONE_MODE } from '@/lib/mode'
+import { obtenerConversacion as obtenerDemo } from '@/lib/demo/store'
+import { obtenerConversacion as obtenerStandalone } from '@/lib/standalone/store'
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
   if (DEMO_MODE) {
-    const conv = obtenerConversacion(id)
+    const conv = obtenerDemo(id)
+    if (!conv) return NextResponse.json({ error: 'No existe esa conversación' }, { status: 404 })
+    return NextResponse.json({ messages: { messages: conv.mensajes } })
+  }
+
+  if (STANDALONE_MODE) {
+    const conv = obtenerStandalone(id)
     if (!conv) return NextResponse.json({ error: 'No existe esa conversación' }, { status: 404 })
     return NextResponse.json({ messages: { messages: conv.mensajes } })
   }

@@ -229,6 +229,9 @@ src/
     kapso/
       client.ts         # envío de mensajes vía Kapso (recibe numeroId, resuelve token/phoneNumberId)
     events.ts            # EventEmitter compartido en memoria (webhooks emiten, /api/eventos escucha)
+    mode.ts               # DEMO_MODE / STANDALONE_MODE — qué rama usa cada ruta (§14)
+    demo/store.ts          # datos de ejemplo en memoria (Fase 1)
+    standalone/store.ts    # conversaciones reales en memoria, sin GHL todavía (Fase 2)
   db/
     schema/ghl.ts        # tabla ghlInstalls: locationId, accessToken, refreshToken, expiresAt
 ```

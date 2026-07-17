@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { numeroPorPhoneId } from '@/lib/ghl/numeros'
 import { upsertContact, agregarMensajeEntrante } from '@/lib/ghl/client'
+import { STANDALONE_MODE } from '@/lib/mode'
+import { encontrarOCrearConversacion, agregarMensaje } from '@/lib/standalone/store'
 
 // TODO: reemplazar por la location real una vez definido dónde vive cada instalación
 // (hoy: sandbox de developer, location de test UnDaROg6tyLshlODU22O — ver ARCHITECTURE.md)
@@ -49,6 +51,14 @@ export async function POST(request: NextRequest) {
     payload?.contact?.profile?.name ?? payload?.conversation?.contact_name ?? undefined
 
   if (!telefono || !texto) {
+    return NextResponse.json({ ok: true })
+  }
+
+  // Fase 2 del roadmap: Kapso real conectado, todavía sin GHL — se guarda en memoria
+  // en vez de reenviar (ver ARCHITECTURE.md §14.2). Se descarta en la Fase 6.
+  if (STANDALONE_MODE) {
+    const conv = encontrarOCrearConversacion(numero.id, telefono, nombreContacto)
+    agregarMensaje(conv.id, texto, 'inbound')
     return NextResponse.json({ ok: true })
   }
 

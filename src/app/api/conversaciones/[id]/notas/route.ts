@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sesionActual, locationIdDeSesion } from '@/lib/auth'
 import { crearNota } from '@/lib/ghl/client'
-import { DEMO_MODE, agregarNotaDemo } from '@/lib/demo/store'
+import { DEMO_MODE, STANDALONE_MODE } from '@/lib/mode'
+import { agregarNotaDemo } from '@/lib/demo/store'
 
 type Body = { contactId: string; body: string }
 
@@ -14,8 +15,9 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Faltan contactId o body' }, { status: 400 })
   }
 
-  if (DEMO_MODE) {
-    agregarNotaDemo(contactId, body)
+  if (DEMO_MODE || STANDALONE_MODE) {
+    // Todavía no hay GHL conectado — no hay dónde guardar la nota de verdad.
+    console.log(`[${STANDALONE_MODE ? 'standalone' : 'demo'}] nota para ${contactId}: ${body}`)
     return NextResponse.json({ ok: true })
   }
 

@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sesionActual, locationIdDeSesion } from '@/lib/auth'
 import { NUMEROS, type NumeroId } from '@/lib/ghl/numeros'
 import { buscarConversaciones } from '@/lib/ghl/client'
-import { DEMO_MODE, listarConversaciones } from '@/lib/demo/store'
+import { DEMO_MODE, STANDALONE_MODE } from '@/lib/mode'
+import { listarConversaciones as listarDemo } from '@/lib/demo/store'
+import { listarConversaciones as listarStandalone } from '@/lib/standalone/store'
 
 export async function GET(request: NextRequest) {
   const numeroId = request.nextUrl.searchParams.get('numero') as NumeroId | null
@@ -12,13 +14,25 @@ export async function GET(request: NextRequest) {
   }
 
   if (DEMO_MODE) {
-    const conversations = listarConversaciones(numeroId!).map((c) => ({
+    const conversations = listarDemo(numeroId!).map((c) => ({
       id: c.id,
       contactId: c.contactId,
       fullName: c.fullName,
       phone: c.phone,
       lastMessageBody: c.mensajes.at(-1)?.body,
       unreadCount: c.unreadCount,
+    }))
+    return NextResponse.json({ conversations })
+  }
+
+  if (STANDALONE_MODE) {
+    const conversations = listarStandalone(numeroId!).map((c) => ({
+      id: c.id,
+      contactId: c.contactId,
+      fullName: c.fullName,
+      phone: c.phone,
+      lastMessageBody: c.mensajes.at(-1)?.body,
+      unreadCount: 0,
     }))
     return NextResponse.json({ conversations })
   }

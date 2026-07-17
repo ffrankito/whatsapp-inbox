@@ -1,7 +1,7 @@
 import type { NumeroId } from '@/lib/ghl/numeros'
 import { DEMO_SEED, type DemoConversacion } from './data'
 
-export const DEMO_MODE = process.env.DEMO_MODE === 'true'
+export { DEMO_MODE } from '@/lib/mode'
 
 // Estado en memoria del proceso — se resetea si se reinicia el server. Es intencional:
 // ver ARCHITECTURE.md §14.1, es solo para la Fase 1 del roadmap (demo visual).

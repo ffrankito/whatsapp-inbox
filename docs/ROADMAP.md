@@ -44,20 +44,23 @@ Objetivo: validar que la conexión real a WhatsApp funciona de punta a punta, si
 esperar a tener toda la integración de GHL armada. El `/inbox` sigue siendo una página
 suelta (no embebida) en esta etapa.
 
+- [x] **Código**: `STANDALONE_MODE=true` — el webhook de Kapso guarda el mensaje **en
+      memoria del proceso** (`src/lib/standalone/store.ts`) en vez de reenviar a GHL, y
+      `/responder` manda de verdad por Kapso (`src/lib/kapso/client.ts`) sin pasar por
+      GHL. Probado con un webhook simulado firmado correctamente: identifica el número,
+      crea la conversación, aparece en `/api/conversaciones`, y el intento de respuesta
+      llegó de verdad hasta la API de Kapso (falló solo por credenciales falsas de
+      prueba — el error fue un 404 real de Kapso, no un fallo de red/formato).
 - [ ] Conectar **uno de los 3 números por Kapso** (o los 3 de una, si se prefiere ir
-      directo) vía Embedded Signup, confirmando modo coexistencia.
-- [ ] **Código pendiente**: el webhook de Kapso, en vez de reenviar a GHL (que todavía no
-      está conectado), guarda el mensaje **en memoria del proceso** — no hace falta base
-      de datos para esto: como el número queda en coexistencia, el historial real sigue
-      viviendo en la app de WhatsApp del celular igual, así que no se pierde nada aunque
-      el server se reinicie.
-- [ ] El `/inbox` standalone muestra esos mensajes reales (mismo mecanismo de
-      actualización en tiempo real que se va a usar después con GHL).
-- [ ] Responder desde el `/inbox` → confirmar que efectivamente sale por WhatsApp de
-      verdad.
+      directo) vía Embedded Signup, confirmando modo coexistencia — esto lo tenés que
+      hacer vos, requiere acceso a Meta Business Manager de Security24.
+- [ ] Con el número real conectado: mandar un WhatsApp de verdad y confirmar que aparece
+      en `/inbox`, responder desde ahí y confirmar que sale de verdad.
 - [ ] **Falta verificar contra un mensaje real**: el parser del webhook de Kapso
-      (`src/app/api/kapso/webhook/route.ts`) está armado según su documentación, pero no
-      probado todavía — acá es donde se termina de ajustar.
+      (`whatsapp_config.phone_number_id`, `message.from`, `message.text.body`) está
+      armado según su documentación y probado con un payload simulado — falta la
+      confirmación final contra un mensaje real de Kapso, puede necesitar un ajuste
+      chico de nombres de campo.
 
 **Punto de decisión:** solo se pasa a la Fase 3 (integración con GHL) si esto funciona
 bien.
