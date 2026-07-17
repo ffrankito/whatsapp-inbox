@@ -1,0 +1,50 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { verificarFirmaGhl } from '@/lib/ghl/verifyWebhook'
+import { NUMEROS, type NumeroId } from '@/lib/ghl/numeros'
+import { enviarPorKapso } from '@/lib/kapso/client'
+import { actualizarEstadoMensaje } from '@/lib/ghl/client'
+
+type OutboundPayload = {
+  contactId: string
+  locationId: string
+  messageId: string
+  type: string
+  phone: string
+  message: string
+}
+
+// Delivery URL de cada Conversation Provider — configurada en GHL como
+// /api/ghl/outbound?numero=dealers|abonados|fullcontrol (ver ARCHITECTURE.md §9.2).
+// Único lugar del proyecto donde efectivamente se manda un mensaje a Kapso/Meta,
+// sin importar si el agente respondió desde nuestro inbox o desde el nativo de GHL.
+export async function POST(request: NextRequest) {
+  const numeroId = request.nextUrl.searchParams.get('numero') as NumeroId | null
+  const numero = numeroId ? NUMEROS[numeroId] : undefined
+  if (!numero) {
+    return NextResponse.json({ error: 'Falta o es inválido el parámetro "numero"' }, { status: 400 })
+  }
+
+  const rawBody = await request.text()
+  const sigOk = verificarFirmaGhl(rawBody, request.headers.get('x-ghl-signature'))
+  if (!sigOk) {
+    console.error(`[GHL outbound/${numero.id}] firma inválida`)
+    return NextResponse.json({ error: 'invalid signature' }, { status: 401 })
+  }
+
+  const payload = JSON.parse(rawBody) as OutboundPayload
+  if (payload.type !== 'WhatsApp' && payload.type !== 'SMS') {
+    // el provider solo debería recibir mensajes de WhatsApp; se ignora cualquier otra cosa
+    return NextResponse.json({ ok: true })
+  }
+
+  try {
+    await enviarPorKapso(numero, payload.phone, payload.message)
+    await actualizarEstadoMensaje(payload.locationId, payload.messageId, 'delivered')
+  } catch (err) {
+    console.error(`[GHL outbound/${numero.id}] error enviando por Kapso:`, err)
+    await actualizarEstadoMensaje(payload.locationId, payload.messageId, 'failed').catch(() => {})
+    return NextResponse.json({ error: 'send failed' }, { status: 502 })
+  }
+
+  return NextResponse.json({ ok: true })
+}

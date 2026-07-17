@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Roadmap — WhatsApp Inbox Security24</title>
+<style>
+  :root {
+    --bg: #f7f5f1;
+    --surface: #ffffff;
+    --surface-soft: #fbfaf7;
+    --border: #e6e2d8;
+    --text: #2b2a27;
+    --text-dim: #57534a;
+    --text-faint: #948e80;
+
+    --accent: #2f9e85;
+    --accent-dim: #1f7c67;
+    --accent-tint: #e4f3ef;
+
+    --good: #3fa66e;
+    --good-tint: #e7f4ec;
+    --warn: #b9822a;
+    --warn-tint: #faf1de;
+    --wait: #8b7fc4;
+    --wait-tint: #ece9f8;
+
+    --shadow-sm: 0 1px 2px rgba(43, 42, 39, 0.05);
+    --shadow-md: 0 10px 28px rgba(43, 42, 39, 0.07);
+
+    --sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #201e1a;
+      --surface: #29261f;
+      --surface-soft: #2e2b24;
+      --border: #403c33;
+      --text: #f1ede4;
+      --text-dim: #beb6a6;
+      --text-faint: #8a8375;
+
+      --accent: #4dbfa2;
+      --accent-dim: #6fd0b8;
+      --accent-tint: #203c35;
+
+      --good: #56c286;
+      --good-tint: #1f3a2b;
+      --warn: #dcaa54;
+      --warn-tint: #3a2e15;
+      --wait: #a79ae0;
+      --wait-tint: #2e2a45;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+      --shadow-md: 0 14px 32px rgba(0, 0, 0, 0.42);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #201e1a; --surface: #29261f; --surface-soft: #2e2b24; --border: #403c33;
+    --text: #f1ede4; --text-dim: #beb6a6; --text-faint: #8a8375;
+    --accent: #4dbfa2; --accent-dim: #6fd0b8; --accent-tint: #203c35;
+    --good: #56c286; --good-tint: #1f3a2b; --warn: #dcaa54; --warn-tint: #3a2e15;
+    --wait: #a79ae0; --wait-tint: #2e2a45;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35); --shadow-md: 0 14px 32px rgba(0, 0, 0, 0.42);
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f5f1; --surface: #ffffff; --surface-soft: #fbfaf7; --border: #e6e2d8;
+    --text: #2b2a27; --text-dim: #57534a; --text-faint: #948e80;
+    --accent: #2f9e85; --accent-dim: #1f7c67; --accent-tint: #e4f3ef;
+    --good: #3fa66e; --good-tint: #e7f4ec; --warn: #b9822a; --warn-tint: #faf1de;
+    --wait: #8b7fc4; --wait-tint: #ece9f8;
+    --shadow-sm: 0 1px 2px rgba(43, 42, 39, 0.05); --shadow-md: 0 10px 28px rgba(43, 42, 39, 0.07);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+  a { color: var(--accent-dim); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .wrap { max-width: 780px; margin: 0 auto; padding: 48px 20px 80px; }
+
+  header.top { margin-bottom: 40px; }
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent-dim); margin-bottom: 10px;
+  }
+  h1 { font-size: 30px; margin: 0 0 8px; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; }
+  .lede { font-size: 15px; color: var(--text-dim); max-width: 60ch; margin: 0; }
+
+  .stat-row {
+    display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap;
+  }
+  .stat {
+    flex: 1; min-width: 140px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; box-shadow: var(--shadow-sm);
+  }
+  .stat .n { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+  .stat.done .n { color: var(--good); }
+  .stat.next .n { color: var(--accent-dim); }
+
+  .timeline { position: relative; margin-top: 44px; }
+  .timeline::before {
+    content: "";
+    position: absolute; left: 19px; top: 6px; bottom: 6px; width: 2px;
+    background: var(--border);
+  }
+
+  .phase { position: relative; padding-left: 52px; margin-bottom: 36px; }
+  .phase:last-child { margin-bottom: 0; }
+
+  .phase-dot {
+    position: absolute; left: 0; top: 2px;
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;
+    background: var(--surface); border: 2px solid var(--border); color: var(--text-faint);
+    z-index: 1;
+  }
+  .phase.done .phase-dot { background: var(--good-tint); border-color: var(--good); color: var(--good); }
+  .phase.now .phase-dot { background: var(--accent-tint); border-color: var(--accent); color: var(--accent-dim); }
+
+  .phase-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px 22px; box-shadow: var(--shadow-sm);
+  }
+  .phase.now .phase-card { border-color: var(--accent); box-shadow: var(--shadow-md); }
+
+  .phase-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    margin-bottom: 10px; flex-wrap: wrap;
+  }
+  .phase-head h2 { font-size: 17px; margin: 0; font-weight: 700; }
+
+  .badge {
+    font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+    white-space: nowrap; letter-spacing: 0.01em;
+  }
+  .badge.done { background: var(--good-tint); color: var(--good); }
+  .badge.now { background: var(--accent-tint); color: var(--accent-dim); }
+  .badge.wait { background: var(--wait-tint); color: var(--wait); }
+
+  .phase-body p { font-size: 13.5px; color: var(--text-dim); margin: 0 0 14px; }
+  .phase-body p:last-child { margin-bottom: 0; }
+
+  .checklist { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .checklist li {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 13px; color: var(--text-dim);
+  }
+  .checklist .box {
+    flex: none; width: 16px; height: 16px; border-radius: 5px; margin-top: 2px;
+    border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center;
+  }
+  .checklist li.checked .box { background: var(--good); border-color: var(--good); }
+  .checklist li.checked .box::after { content: "✓"; color: white; font-size: 11px; font-weight: 800; }
+  .checklist li.checked span.t { color: var(--text-faint); text-decoration: line-through; text-decoration-color: var(--border); }
+
+  .note {
+    margin-top: 14px; padding: 10px 13px; border-radius: 10px;
+    background: var(--warn-tint); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    font-size: 12.5px; color: var(--text-dim);
+  }
+  .note b { color: var(--warn); }
+
+  .gate {
+    margin-top: 14px; padding: 10px 13px; border-radius: 10px;
+    background: var(--wait-tint); border: 1px solid color-mix(in srgb, var(--wait) 35%, transparent);
+    font-size: 12.5px; color: var(--text-dim);
+  }
+  .gate b { color: var(--wait); }
+
+  footer {
+    margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text-faint);
+  }
+
+  @media (max-width: 520px) {
+    h1 { font-size: 25px; }
+    .phase { padding-left: 44px; }
+    .phase-dot { width: 34px; height: 34px; font-size: 13px; }
+    .timeline::before { left: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Security24 · Área comercial</div>
+    <h1>Inbox de WhatsApp — Roadmap del proyecto</h1>
+    <p class="lede">
+      Orden revisado: primero se valida el diseño con datos de mentira, después la
+      conexión real a WhatsApp sin tocar GHL todavía, y recién con las dos aprobadas se
+      integra todo dentro de GHL.
+    </p>
+
+    <div class="stat-row">
+      <div class="stat done"><div class="n">1 de 9</div><div class="l">etapas completas</div></div>
+      <div class="stat next"><div class="n">Fase 1</div><div class="l">etapa siguiente</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">números conectados aún</div></div>
+    </div>
+  </header>
+
+  <div class="timeline">
+
+    <div class="phase done">
+      <div class="phase-dot">✓</div>
+      <div class="phase-card">
+        <div class="phase-head">
+          <h2>Fase 0 — Diseñar y construir la base</h2>
+          <span class="badge done">Completada</span>
+        </div>
+        <div class="phase-body">
+          <p>
+            Antes de escribir código había que resolver cómo encajan las piezas: GHL no
+            deja meter WhatsApp como canal propio sin pasar por una app registrada, y
+            Meta no deja mantener la app del celular activa (coexistencia) sin pasar por
+            un proveedor aprobado — por eso el diseño final usa <b>Kapso</b> como puente
+            hacia WhatsApp y una <b>Marketplace App privada</b> como puente hacia GHL, con
+            el inbox propio embebido adentro de GHL vía un link de menú en modo iframe.
+          </p>
+          <p>
+            Con ese diseño ya validado, se armó el proyecto completo: la base de datos,
+            las rutas que reciben mensajes entrantes y salientes, y la pantalla del
+            inbox con el selector de los 3 números. Compila sin errores, pero todavía no
+            habla con ningún sistema real.
+          </p>
+        </div>
+        <ul class="checklist">
+          <li class="checked"><span class="box"></span><span class="t">Arquitectura investigada y documentada</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Proyecto Next.js armado, con build limpio</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Todas las rutas backend escritas (webhooks, envío, notas)</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Pantalla de inbox armada (selector, lista, hilo, notas)</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Marketplace App creada en el sandbox, con sus claves guardadas</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Sub-cuenta de prueba creada, sin tocar la cuenta real</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase now">
+      <div class="phase-dot">1</div>
+      <div class="phase-card">
+        <div class="phase-head">
+          <h2>Fase 1 — Demo visual con datos de ejemplo</h2>
+          <span class="badge now">Es lo que sigue</span>
+        </div>
+        <div class="phase-body">
+          <p>
+            Antes de conectar nada real, se arma una versión del inbox con conversaciones
+            de mentira (los mismos ejemplos que ya se mostraron en la vista previa) para
+            que el equipo la use con clicks reales y diga si el diseño gusta o hay que
+            cambiar algo. Ni GHL ni Kapso están conectados todavía en esta etapa.
+          </p>
+          <p>
+            Corre igual como contenedor Docker en el data center, pero alcanza con acceso
+            interno — todavía no hace falta exponerlo a internet, porque nadie de afuera
+            necesita llegarle.
+          </p>
+        </div>
+        <ul class="checklist">
+          <li class="checked"><span class="box"></span><span class="t">Modo demo: el inbox muestra conversaciones de ejemplo fijas</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Responder y agregar notas funciona en pantalla, sin mandar nada real</span></li>
+          <li><span class="box"></span><span class="t">Armar la imagen Docker y publicarla en un servidor interno</span></li>
+          <li><span class="box"></span><span class="t">Mostrar internamente y juntar feedback de diseño</span></li>
+        </ul>
+        <div class="gate"><b>Punto de decisión:</b> se pasa a la Fase 2 solo si el diseño se aprueba.</div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-dot">2</div>
+      <div class="phase-card">
+        <div class="phase-head">
+          <h2>Fase 2 — Kapso real, todavía sin GHL</h2>
+          <span class="badge wait">Sin empezar</span>
+        </div>
+        <div class="phase-body">
+          <p>
+            Acá entra WhatsApp de verdad — se conecta uno de los 3 números (o los 3
+            directamente) por Kapso, con coexistencia activa. El inbox sigue siendo una
+            página suelta, no embebida en GHL todavía: la idea es validar que la
+            conexión real funciona antes de meterse con toda la configuración de GHL.
+          </p>
+          <p>
+            No hace falta base de datos para esto: como el número queda en coexistencia,
+            el historial real de los mensajes sigue existiendo en la app de WhatsApp del
+            celular igual — el proyecto puede guardarlos solo en memoria mientras dure
+            esta prueba, sin perder nada importante si se reinicia.
+          </p>
+        </div>
+        <ul class="checklist">
+          <li><span class="box"></span><span class="t">Conectar uno (o los 3) números por Kapso en modo coexistencia</span></li>
+          <li><span class="box"></span><span class="t">Los mensajes entrantes se guardan en memoria, sin base de datos</span></li>
+          <li><span class="box"></span><span class="t">Responder desde el inbox y confirmar que sale por WhatsApp de verdad</span></li>
+        </ul>
+        <div class="note">
+          <b>Ojo con esto:</b> el código que interpreta los mensajes que manda Kapso está
+          escrito según su documentación, pero todavía no se probó contra un mensaje real
+          — acá es donde se termina de ajustar.
+        </div>
+        <div class="gate"><b>Punto de decisión:</b> se pasa a la Fase 3 solo si esto funciona bien.</div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-dot">3</div>
+      <div class="phase-card">
+        <div class="phase-head">
+          <h2>Fase 3 — Infraestructura real para GHL</h2>
+          <span class="badge wait">Sin empezar</span>
+        </div>
+        <div class="phase-body">
+          <p>
+            Recién acá hace falta una base de datos de verdad — para guardar el acceso
+            que GHL entrega al instalar la app — y una dirección pública real, porque GHL
+            necesita poder mandarle webhooks al proyecto desde afuera.
+          </p>
+        </div>
+        <ul class="checklist">
+          <li><span class="box"></span><span class="t">Crear la base de datos para guardar el acceso a GHL</span></li>
+          <li><span class="box"></span><span class="t">Exponer el contenedor a internet con dominio y HTTPS</span></li>
+          <li><span class="box"></span><span class="t">Actualizar esa dirección en la configuración de la app de GHL</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-dot">4</div>
+      <div class="phase-card">
+        <div class="phase-head">
+          <h2>Fase 4 — Terminar de configurar la app dentro de GHL</h2>
+          <span class="badge wait">Sin empezar</span>
+        </div>
+        <div class="phase-body">
+          <p>
+            Ya se creó la app y sus claves de acceso, pero todavía le faltan las piezas
+            que la conectan con WhatsApp adentro de GHL: un canal por cada número
+            (Dealers, Abonados, App Full Control), y el link de menú que hace que el
+            inbox aparezca integrado dentro de la pantalla de GHL en vez de ser una
+            página aparte.
+          </p>
+        </div>
+        <ul class="checklist">
+          <li><span class="box"></span><span class="t">Confirmar los permisos de Contactos guardados en la app</span></li>
+          <li><span class="box"></span><span class="t">Crear un canal por cada uno de los 3 números</span></li>
+          <li><span class="box"></span><span class="t">Crear el link de menú que embebe el inbox dentro de GHL</span></li>
+          <li><span class="box"></span><span class="t">Instalar la app sobre la sub-cuenta de prueba</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-dot">5</div>
+      <div class="phase-card">
+        <div class="phase-head">
+          <h2>Fase 5 — Seguridad</h2>
+          <span class="badge wait">Sin empezar</span>
+        </div>
+        <div class="phase-body">
+          <p>
+            Antes de que el sistema empiece a manejar acciones y datos reales de verdad,
+            se cierran los huecos detectados en la revisión: lo más importante es que hoy
+            los endpoints de "responder" y "guardar nota" son vulnerables a que un sitio
+            externo dispare acciones usando la sesión de un agente logueado sin que se dé
+            cuenta (CSRF) — necesario arreglarlo antes, no después, de que haya datos
+            reales en juego.
+          </p>
+        </div>
+        <ul class="checklist">
+          <li><span class="box"></span><span class="t">Validar que los pedidos de responder/guardar nota vengan realmente de adentro de GHL</span></li>
+          <li><span class="box"></span><span class="t">Agregar un límite de pedidos por minuto a los webhooks</span></li>
+          <li><span class="box"></span><span class="t">Revisar las vulnerabilidades ya detectadas en las dependencias del proyecto</span></li>
+          <li><span class="box"></span><span class="t">Definir si hace falta separar por equipo quién ve cada número</span></li>
+          <li><span class="box"></span><span class="t">Reforzar el contenedor Docker (no correr como root, imagen mínima)</span></li>
+          <li><span class="box"></span><span class="t">Confirmar que las notas quedan con autoría clara en GHL</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-dot">6</div>
+      <div class="phase-card">
+        <div class="phase-head">
+          <h2>Fase 6 — Conectar todo: GHL pasa a ser la fuente de verdad</h2>
+          <span class="badge wait">Sin empezar</span>
+        </div>
+        <div class="phase-body">
+          <p>
+            Con Kapso ya probado (Fase 2), GHL ya configurado (Fase 4) y los huecos de
+            seguridad cerrados (Fase 5), se conectan las dos puntas: el webhook deja de
+            guardar en memoria y pasa a cargar todo en GHL de verdad — que es como se
+            pensó desde el principio. A partir de acá el inbox se usa embebido dentro de
+            GHL, no como página suelta.
+          </p>
+        </div>
+        <ul class="checklist">
+          <li><span class="box"></span><span class="t">Completar la conexión de los números que falten por Kapso</span></li>
+          <li><span class="box"></span><span class="t">El webhook pasa a cargar los mensajes en GHL en vez de memoria</span></li>
+          <li><span class="box"></span><span class="t">Mandar un WhatsApp real y verlo aparecer en el inbox nativo de GHL y en el propio</span></li>
+          <li><span class="box"></span><span class="t">Abrir el inbox desde adentro de GHL (no como link suelto) y validar el login automático</span></li>
+          <li><span class="box"></span><span class="t">Probar los 3 números a la vez y confirmar que no se mezclan</span></li>
+          <li><span class="box"></span><span class="t">Agregar una nota y verla aparecer en el contacto en GHL</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-dot">7</div>
+      <div class="phase-card">
+        <div class="phase-head">
+          <h2>Fase 7 — Pasar a la cuenta real</h2>
+          <span class="badge wait">Sin empezar</span>
+        </div>
+        <div class="phase-body">
+          <p>
+            Recién cuando la Fase 6 funcione de punta a punta sin sorpresas, se repite
+            la instalación sobre la cuenta real de Security24. Es el mismo proceso que
+            ya se hizo en el sandbox, solo que esta vez sí queda visible para el equipo
+            comercial.
+          </p>
+        </div>
+        <ul class="checklist">
+          <li><span class="box"></span><span class="t">Instalar la app sobre la location real de Security24</span></li>
+          <li><span class="box"></span><span class="t">Repetir la configuración de Kapso si hace falta</span></li>
+          <li><span class="box"></span><span class="t">Prueba de humo final con tráfico real</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-dot">8</div>
+      <div class="phase-card">
+        <div class="phase-head">
+          <h2>Fase 8 — Después del lanzamiento</h2>
+          <span class="badge wait">A futuro</span>
+        </div>
+        <div class="phase-body">
+          <p>
+            No bloquea nada de lo anterior, pero son cosas para revisar una vez que el
+            equipo ya esté usando el inbox en el día a día: si el proyecto llega a correr
+            en más de un servidor a la vez (balanceo de carga) el mecanismo de aviso
+            instantáneo necesita un ajuste, si las notas necesitan más estructura que
+            texto libre, y si el volumen de mensajes empieza a acercarse a los límites de
+            la API de GHL.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    Actualizado a partir de <code>docs/ROADMAP.md</code> y <code>docs/ARCHITECTURE.md</code> del proyecto.
+  </footer>
+</div>
+</body>
+</html>

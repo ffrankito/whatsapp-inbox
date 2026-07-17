@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WhatsApp Inbox — Security24 (preview)</title>
+<style>
+  :root {
+    --bg: #f7f5f1;
+    --surface: #ffffff;
+    --surface-soft: #fbfaf7;
+    --border: #e6e2d8;
+    --text: #2b2a27;
+    --text-dim: #726e64;
+    --text-faint: #a19c8e;
+
+    --accent: #2f9e85;
+    --accent-dim: #257e6b;
+    --accent-tint: #e4f3ef;
+    --accent-ink: #ffffff;
+
+    --good: #3fa66e;
+    --good-tint: #e7f4ec;
+    --warn: #cf9a3a;
+    --warn-tint: #faf1de;
+    --critical: #d1594e;
+    --critical-tint: #fbe9e6;
+
+    --shadow-sm: 0 1px 2px rgba(43, 42, 39, 0.06);
+    --shadow-md: 0 6px 20px rgba(43, 42, 39, 0.08);
+
+    --sans: "Segoe UI", -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #221f1b;
+      --surface: #2b2822;
+      --surface-soft: #302c26;
+      --border: #423d34;
+      --text: #f3efe7;
+      --text-dim: #beb6a6;
+      --text-faint: #8b8375;
+
+      --accent: #4cbfa2;
+      --accent-dim: #6fd0b8;
+      --accent-tint: #24413a;
+      --accent-ink: #17251f;
+
+      --good: #56c286;
+      --good-tint: #1f3a2b;
+      --warn: #e2b158;
+      --warn-tint: #3c2f18;
+      --critical: #e37b6e;
+      --critical-tint: #402420;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+      --shadow-md: 0 10px 26px rgba(0, 0, 0, 0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #221f1b; --surface: #2b2822; --surface-soft: #302c26; --border: #423d34;
+    --text: #f3efe7; --text-dim: #beb6a6; --text-faint: #8b8375;
+    --accent: #4cbfa2; --accent-dim: #6fd0b8; --accent-tint: #24413a; --accent-ink: #17251f;
+    --good: #56c286; --good-tint: #1f3a2b; --warn: #e2b158; --warn-tint: #3c2f18;
+    --critical: #e37b6e; --critical-tint: #402420;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35); --shadow-md: 0 10px 26px rgba(0, 0, 0, 0.4);
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f5f1; --surface: #ffffff; --surface-soft: #fbfaf7; --border: #e6e2d8;
+    --text: #2b2a27; --text-dim: #726e64; --text-faint: #a19c8e;
+    --accent: #2f9e85; --accent-dim: #257e6b; --accent-tint: #e4f3ef; --accent-ink: #ffffff;
+    --good: #3fa66e; --good-tint: #e7f4ec; --warn: #cf9a3a; --warn-tint: #faf1de;
+    --critical: #d1594e; --critical-tint: #fbe9e6;
+    --shadow-sm: 0 1px 2px rgba(43, 42, 39, 0.06); --shadow-md: 0 6px 20px rgba(43, 42, 39, 0.08);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 32px 16px 48px;
+  }
+  .callout {
+    max-width: 1120px;
+    width: 100%;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 4px;
+    color: var(--text-faint);
+    font-size: 12.5px;
+  }
+  .callout b { color: var(--text-dim); font-weight: 600; }
+
+  .frame {
+    max-width: 1120px;
+    width: 100%;
+    border-radius: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+  }
+  .frame-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: var(--surface-soft);
+    border-bottom: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--text-faint);
+  }
+  .frame-tab .crumb {
+    color: var(--text-dim);
+  }
+  .frame-tab .crumb.current {
+    color: var(--accent-dim);
+    font-weight: 600;
+  }
+
+  .app { display: flex; flex-direction: column; min-height: 620px; }
+  .app-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px 14px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .app-top .title { display: flex; align-items: center; gap: 12px; }
+  .app-top .title .mark {
+    width: 36px; height: 36px;
+    border-radius: 11px;
+    background: var(--accent-tint);
+    color: var(--accent-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .app-top .title h1 { font-size: 16px; margin: 0; font-weight: 700; }
+  .app-top .title .sub { font-size: 12px; color: var(--text-faint); margin-top: 1px; }
+
+  .channel-status { display: flex; gap: 10px; flex-wrap: wrap; }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .status-pill .led { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+
+  .console {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 216px 272px 1fr;
+    min-height: 0;
+    border-top: 1px solid var(--border);
+  }
+  .console > * + * { border-left: 1px solid var(--border); }
+
+  .numbers { padding: 14px 12px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+  .numbers .eyebrow {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--text-faint); padding: 2px 8px 8px;
+  }
+  .num-btn {
+    all: unset; cursor: pointer;
+    display: flex; flex-direction: column; gap: 5px;
+    padding: 11px 12px; border-radius: 12px; border: 1px solid transparent;
+  }
+  .num-btn:hover { background: var(--surface-soft); }
+  .num-btn .row1 { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+  .num-btn .name { font-weight: 600; font-size: 13px; }
+  .num-btn .badge {
+    font-size: 11px; font-weight: 600;
+    background: var(--critical); color: white;
+    border-radius: 999px; min-width: 18px; height: 18px;
+    display: flex; align-items: center; justify-content: center; padding: 0 5px;
+  }
+  .num-btn .meta { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-faint); }
+  .num-btn .meta .led { width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
+  .num-btn[data-active="true"] { background: var(--accent-tint); }
+  .num-btn[data-active="true"] .name { color: var(--accent-dim); }
+
+  .convlist { display: flex; flex-direction: column; overflow-y: auto; }
+  .convlist .listhead {
+    padding: 14px 16px 8px; font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--text-faint);
+    position: sticky; top: 0; background: var(--surface);
+  }
+  .conv-item { all: unset; cursor: pointer; display: block; padding: 11px 16px; border-bottom: 1px solid var(--border); }
+  .conv-item:hover { background: var(--surface-soft); }
+  .conv-item[data-active="true"] { background: var(--accent-tint); }
+  .conv-item .row1 { display: flex; justify-content: space-between; gap: 8px; }
+  .conv-item .who { font-weight: 600; font-size: 13px; }
+  .conv-item .time { font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
+  .conv-item .preview {
+    font-size: 12.5px; color: var(--text-dim); margin-top: 3px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .conv-item .chips { display: flex; gap: 6px; margin-top: 7px; }
+  .chip { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .chip.urgente { background: var(--critical-tint); color: var(--critical); }
+  .chip.espera { background: var(--warn-tint); color: var(--warn); }
+  .chip.resuelto { background: var(--good-tint); color: var(--good); }
+
+  .thread { display: flex; flex-direction: column; min-height: 0; }
+  .thread-head {
+    padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; border-bottom: 1px solid var(--border);
+  }
+  .thread-head .who { display: flex; flex-direction: column; }
+  .thread-head .who .name { font-weight: 700; font-size: 14px; }
+  .thread-head .who .id { font-size: 11.5px; color: var(--text-faint); }
+  .thread-actions { display: flex; gap: 8px; }
+  .btn {
+    all: unset; cursor: pointer; font-size: 12.5px; font-weight: 600;
+    padding: 7px 13px; border-radius: 10px; border: 1px solid var(--border); color: var(--text-dim);
+  }
+  .btn:hover { background: var(--surface-soft); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .btn.primary:hover { background: var(--accent-dim); }
+
+  .bubbles {
+    flex: 1; overflow-y: auto; padding: 20px;
+    display: flex; flex-direction: column; gap: 10px;
+    background: var(--surface-soft);
+  }
+  .bubble { max-width: 60%; padding: 9px 12px; border-radius: 14px; font-size: 13px; line-height: 1.5; box-shadow: var(--shadow-sm); }
+  .bubble .t { display: block; margin-top: 4px; font-size: 10.5px; opacity: 0.6; }
+  .bubble.in {
+    align-self: flex-start; background: var(--surface);
+    border: 1px solid var(--border); border-bottom-left-radius: 4px;
+  }
+  .bubble.out {
+    align-self: flex-end; background: var(--accent); color: var(--accent-ink);
+    border-bottom-right-radius: 4px;
+  }
+  .bubble.out .t { opacity: 0.8; }
+
+  .composer { display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--border); }
+  .composer input {
+    flex: 1; font: inherit; padding: 10px 14px; border-radius: 11px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  }
+  .composer input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .notes { border-top: 1px solid var(--border); padding: 12px 18px 16px; }
+  .notes .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .notes .head .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); }
+  .notes .head .synced { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--good); font-weight: 600; }
+  .notes .head .synced::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
+  .note-card {
+    background: var(--surface-soft); border: 1px solid var(--border);
+    border-radius: 11px; padding: 10px 12px; font-size: 12.5px; color: var(--text-dim);
+  }
+
+  @media (max-width: 860px) {
+    .console { grid-template-columns: 1fr; }
+    .console > * + * { border-left: none; border-top: 1px solid var(--border); }
+    .numbers { flex-direction: row; overflow-x: auto; }
+    .num-btn { min-width: 160px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="callout">Vista previa visual — <b>sin datos reales, sin lógica conectada</b></div>
+
+  <div class="frame">
+    <div class="frame-tab">
+      <span class="crumb">GHL</span>
+      <span>›</span>
+      <span class="crumb current">WhatsApp</span>
+    </div>
+
+    <div class="app">
+      <div class="app-top">
+        <div class="title">
+          <span class="mark">💬</span>
+          <div>
+            <h1>Inbox WhatsApp</h1>
+            <div class="sub">Área comercial · Security24</div>
+          </div>
+        </div>
+        <div class="channel-status">
+          <span class="status-pill"><span class="led"></span>Dealers</span>
+          <span class="status-pill"><span class="led"></span>Abonados</span>
+          <span class="status-pill"><span class="led"></span>App Full Control</span>
+        </div>
+      </div>
+
+      <div class="console">
+        <nav class="numbers" id="numbers">
+          <div class="eyebrow">Números</div>
+          <button class="num-btn" data-num="dealers" data-active="true">
+            <span class="row1"><span class="name">Dealers</span><span class="badge">2</span></span>
+            <span class="meta"><span class="led"></span>+54 341 5·· ····</span>
+          </button>
+          <button class="num-btn" data-num="abonados">
+            <span class="row1"><span class="name">Abonados</span><span class="badge">1</span></span>
+            <span class="meta"><span class="led"></span>+54 341 5·· ····</span>
+          </button>
+          <button class="num-btn" data-num="fullcontrol">
+            <span class="row1"><span class="name">App Full Control</span></span>
+            <span class="meta"><span class="led"></span>+54 341 5·· ····</span>
+          </button>
+        </nav>
+
+        <div class="convlist" id="convlist"></div>
+
+        <section class="thread">
+          <div class="thread-head">
+            <div class="who">
+              <span class="name" id="thWho">—</span>
+              <span class="id" id="thId">—</span>
+            </div>
+            <div class="thread-actions">
+              <button class="btn">Cerrar</button>
+              <button class="btn primary">Asignarme</button>
+            </div>
+          </div>
+          <div class="bubbles" id="thBubbles"></div>
+          <div class="composer">
+            <input type="text" placeholder="Escribir una respuesta…" aria-label="Escribir una respuesta" />
+            <button class="btn primary">Enviar</button>
+          </div>
+          <div class="notes">
+            <div class="head">
+              <span class="label">Nota / auditoría</span>
+              <span class="synced">Guardado en GHL</span>
+            </div>
+            <div class="note-card" id="thNote">—</div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const DATA = {
+    dealers: {
+      label: "Dealers",
+      conversations: [
+        {
+          id: "c1", who: "Alarmas del Sur", phone: "+54 341 511-2098", time: "10:42",
+          preview: "¿Cuándo llega el técnico para la instalación de mañana?",
+          chip: null,
+          note: "Sin novedades. Instalación coordinada para el 17/07 turno mañana.",
+          bubbles: [
+            { dir: "in", text: "Hola, ¿cuándo llega el técnico para la instalación de mañana?", t: "10:40" },
+            { dir: "out", text: "Hola! Está agendado para las 9hs, zona norte.", t: "10:41" },
+            { dir: "in", text: "Perfecto, gracias", t: "10:42" },
+          ],
+        },
+        {
+          id: "c2", who: "Seguridad Rosario Norte", phone: "+54 341 622-4471", time: "09:15",
+          preview: "Necesito el código de baja del cliente 4521",
+          chip: { cls: "espera", text: "Esperando" },
+          note: "—",
+          bubbles: [
+            { dir: "in", text: "Buenas, necesito el código de baja del cliente 4521 para hacer el service", t: "09:15" },
+          ],
+        },
+        {
+          id: "c3", who: "Monitoreo Pergamino", phone: "+54 336 445-1120", time: "ayer",
+          preview: "Perfecto, gracias!",
+          chip: { cls: "resuelto", text: "Resuelto" },
+          note: "Consulta por facturación, resuelta por Ornella.",
+          bubbles: [
+            { dir: "in", text: "¿Me pueden reenviar la factura de junio?", t: "ayer 17:02" },
+            { dir: "out", text: "Sí, te la reenvío ahora mismo", t: "ayer 17:05" },
+            { dir: "in", text: "Perfecto, gracias!", t: "ayer 17:20" },
+          ],
+        },
+      ],
+    },
+    abonados: {
+      label: "Abonados",
+      conversations: [
+        {
+          id: "a1", who: "María Fernández — Abonado #8842", phone: "+54 341 588-3312", time: "11:03",
+          preview: "no fui yo, no sé qué pasó",
+          chip: { cls: "urgente", text: "Urgente" },
+          note: "Falsa alarma — sensor cochera con falla intermitente. Sugerido: agendar mantenimiento preventivo.",
+          bubbles: [
+            { dir: "in", text: "Hola, se disparó la alarma de la cochera hace 5 minutos", t: "10:58" },
+            { dir: "in", text: "no fui yo, no sé qué pasó", t: "10:59" },
+            { dir: "out", text: "Hola María, ya estamos revisando las cámaras de tu domicilio. ¿Está todo bien ahí?", t: "11:01" },
+            { dir: "in", text: "sí, está todo bien, no hay nadie en casa", t: "11:02" },
+            { dir: "out", text: "Perfecto. Vamos a resetear el sensor de la cochera de forma remota, un momento.", t: "11:03" },
+          ],
+        },
+        {
+          id: "a2", who: "Roberto Giménez — Abonado #3310", phone: "+54 341 402-7765", time: "ayer",
+          preview: "quiero dar de baja el servicio",
+          chip: { cls: "espera", text: "Esperando" },
+          note: "—",
+          bubbles: [
+            { dir: "in", text: "Buenas, quiero dar de baja el servicio, me mudo de ciudad", t: "ayer 14:10" },
+          ],
+        },
+      ],
+    },
+    fullcontrol: {
+      label: "App Full Control",
+      conversations: [
+        {
+          id: "f1", who: "Carlos Medina — App Full Control", phone: "+54 341 677-9021", time: "08:50",
+          preview: "no me deja armar el sistema desde la app",
+          chip: { cls: "espera", text: "Esperando" },
+          note: "—",
+          bubbles: [
+            { dir: "in", text: "Hola, la app me tira error al intentar armar el sistema", t: "08:50" },
+          ],
+        },
+        {
+          id: "f2", who: "Estudio Contable SRL — App Full Control", phone: "+54 341 455-8890", time: "lun",
+          preview: "todo funcionando bien, gracias",
+          chip: { cls: "resuelto", text: "Resuelto" },
+          note: "Reinstalación de la app tras cambio de celular. Sin novedades.",
+          bubbles: [
+            { dir: "in", text: "Cambié de celular, ¿cómo reinstalo la app?", t: "lun 12:00" },
+            { dir: "out", text: "Te paso el link de descarga y el paso a paso", t: "lun 12:04" },
+            { dir: "in", text: "todo funcionando bien, gracias", t: "lun 12:40" },
+          ],
+        },
+      ],
+    },
+  };
+
+  const numbersEl = document.getElementById("numbers");
+  const convlistEl = document.getElementById("convlist");
+  const thWho = document.getElementById("thWho");
+  const thId = document.getElementById("thId");
+  const thBubbles = document.getElementById("thBubbles");
+  const thNote = document.getElementById("thNote");
+
+  function renderConvList(numKey, activeConvId) {
+    const group = DATA[numKey];
+    convlistEl.innerHTML = "";
+    const head = document.createElement("div");
+    head.className = "listhead";
+    head.textContent = group.label + " · " + group.conversations.length;
+    convlistEl.appendChild(head);
+
+    group.conversations.forEach((c) => {
+      const btn = document.createElement("button");
+      btn.className = "conv-item";
+      btn.dataset.active = String(c.id === activeConvId);
+      btn.innerHTML =
+        '<span class="row1"><span class="who">' + c.who + '</span><span class="time">' + c.time + '</span></span>' +
+        '<div class="preview">' + c.preview + '</div>' +
+        (c.chip ? '<div class="chips"><span class="chip ' + c.chip.cls + '">' + c.chip.text + '</span></div>' : '');
+      btn.addEventListener("click", () => {
+        renderConvList(numKey, c.id);
+        renderThread(numKey, c.id);
+      });
+      convlistEl.appendChild(btn);
+    });
+  }
+
+  function renderThread(numKey, convId) {
+    const conv = DATA[numKey].conversations.find((c) => c.id === convId);
+    thWho.textContent = conv.who;
+    thId.textContent = conv.phone;
+    thNote.textContent = conv.note;
+    thBubbles.innerHTML = "";
+    conv.bubbles.forEach((b) => {
+      const div = document.createElement("div");
+      div.className = "bubble " + b.dir;
+      div.innerHTML = b.text + '<span class="t">' + b.t + "</span>";
+      thBubbles.appendChild(div);
+    });
+    thBubbles.scrollTop = thBubbles.scrollHeight;
+  }
+
+  function selectNumber(numKey) {
+    [...numbersEl.querySelectorAll(".num-btn")].forEach((b) => {
+      b.dataset.active = String(b.dataset.num === numKey);
+    });
+    const first = DATA[numKey].conversations[0];
+    renderConvList(numKey, first.id);
+    renderThread(numKey, first.id);
+  }
+
+  numbersEl.querySelectorAll(".num-btn").forEach((btn) => {
+    btn.addEventListener("click", () => selectNumber(btn.dataset.num));
+  });
+
+  selectNumber("dealers");
+</script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<title>Flujo entrante — WhatsApp Inbox Security24</title>
+<style>
+  :root {
+    --bg: #f7f5f1;
+    --surface: #ffffff;
+    --surface-soft: #fbfaf7;
+    --border: #e6e2d8;
+    --text: #2b2a27;
+    --text-dim: #57534a;
+    --text-faint: #948e80;
+    --accent: #2f9e85;
+    --accent-dim: #1f7c67;
+    --accent-tint: #e4f3ef;
+    --shadow-sm: 0 1px 2px rgba(43, 42, 39, 0.05);
+    --shadow-md: 0 10px 28px rgba(43, 42, 39, 0.07);
+    --sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #201e1a; --surface: #29261f; --surface-soft: #2e2b24; --border: #403c33;
+      --text: #f1ede4; --text-dim: #beb6a6; --text-faint: #8a8375;
+      --accent: #4dbfa2; --accent-dim: #6fd0b8; --accent-tint: #203c35;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.35); --shadow-md: 0 14px 32px rgba(0,0,0,.42);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #201e1a; --surface: #29261f; --surface-soft: #2e2b24; --border: #403c33;
+    --text: #f1ede4; --text-dim: #beb6a6; --text-faint: #8a8375;
+    --accent: #4dbfa2; --accent-dim: #6fd0b8; --accent-tint: #203c35;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.35); --shadow-md: 0 14px 32px rgba(0,0,0,.42);
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f5f1; --surface: #ffffff; --surface-soft: #fbfaf7; --border: #e6e2d8;
+    --text: #2b2a27; --text-dim: #57534a; --text-faint: #948e80;
+    --accent: #2f9e85; --accent-dim: #1f7c67; --accent-tint: #e4f3ef;
+    --shadow-sm: 0 1px 2px rgba(43,42,39,.05); --shadow-md: 0 10px 28px rgba(43,42,39,.07);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--sans);
+    -webkit-font-smoothing: antialiased; line-height: 1.55;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 44px 20px 70px; }
+
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--accent-dim); margin-bottom: 10px;
+  }
+  h1 { font-size: 27px; margin: 0 0 8px; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; }
+  .lede { font-size: 14.5px; color: var(--text-dim); max-width: 62ch; margin: 0 0 32px; }
+
+  .diagram-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+    padding: 18px; box-shadow: var(--shadow-md); overflow-x: auto;
+  }
+  .diagram-card pre.mermaid { margin: 0; }
+
+  .legend {
+    margin-top: 30px; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px;
+  }
+  .legend-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; box-shadow: var(--shadow-sm);
+  }
+  .legend-item .n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 7px; background: var(--accent-tint);
+    color: var(--accent-dim); font-size: 12px; font-weight: 800; margin-right: 8px;
+  }
+  .legend-item .title { font-size: 13.5px; font-weight: 700; }
+  .legend-item p { font-size: 12.5px; color: var(--text-dim); margin: 6px 0 0; }
+
+  footer {
+    margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text-faint);
+  }
+
+  @media (max-width: 560px) { h1 { font-size: 22px; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="eyebrow">Security24 · Inbox WhatsApp</div>
+  <h1>Flujo entrante: del mensaje al inbox</h1>
+  <p class="lede">
+    Punto a punto, qué pasa desde que un dealer/abonado/usuario de Full Control manda un
+    WhatsApp hasta que aparece en pantalla — sin que nadie tenga que recargar nada.
+  </p>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor C as Contacto<br/>(dealer / abonado / Full Control)
+    participant M as WhatsApp (Meta)
+    participant K as Kapso
+    participant B as Backend<br/>(Next.js)
+    participant G as GHL
+    participant E as SSE /api/eventos<br/>(mismo servidor Docker)
+    participant I as Inbox<br/>(navegador, dentro de GHL)
+    actor A as Agente
+
+    C->>M: Manda un mensaje de WhatsApp
+    M->>K: Entrega el mensaje<br/>(coexistencia: también queda en la app del celular)
+    K->>B: POST /api/kapso/webhook<br/>(firma HMAC)
+    activate B
+    B->>B: Valida la firma y detecta<br/>a qué número llegó
+    B->>G: POST /contacts/upsert<br/>(resuelve o crea el contacto)
+    B->>G: POST /conversations/messages/inbound<br/>(carga el mensaje en GHL)
+    B->>E: Emite evento en memoria<br/>{numero, conversationId}
+    deactivate B
+    E-->>I: Avisa al instante por la conexión<br/>SSE ya abierta (sin que nadie pregunte)
+    activate I
+    I->>B: GET /api/conversaciones/:id
+    B->>G: Pide la conversación actualizada
+    G-->>B: Datos frescos
+    B-->>I: Mensaje + estado
+    deactivate I
+    I-->>A: Aparece en pantalla al instante
+    </pre>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <span class="n">1–2</span><span class="title">WhatsApp → Kapso</span>
+      <p>Meta le entrega el mensaje a Kapso. Como el número está en modo coexistencia, también sigue viéndose en la app del celular del equipo — nadie pierde eso.</p>
+    </div>
+    <div class="legend-item">
+      <span class="n">3–4</span><span class="title">Kapso → nuestro backend</span>
+      <p>Kapso llama a nuestro webhook. Se verifica que el mensaje sea realmente de Kapso (firma) antes de confiar en nada, y se identifica cuál de los 3 números lo recibió.</p>
+    </div>
+    <div class="legend-item">
+      <span class="n">5–6</span><span class="title">Backend → GHL</span>
+      <p>Se busca o crea el contacto por teléfono, y se carga el mensaje en el historial de conversaciones de GHL — que queda como registro único de todo.</p>
+    </div>
+    <div class="legend-item">
+      <span class="n">7–8</span><span class="title">Aviso en tiempo real (mismo servidor)</span>
+      <p>En vez de que el inbox pregunte cada tanto "¿hay algo nuevo?", el propio servidor (corre como contenedor Docker propio, sin intermediarios externos) avisa apenas pasa algo por una conexión que el navegador dejó abierta.</p>
+    </div>
+    <div class="legend-item">
+      <span class="n">9–11</span><span class="title">Inbox pide los datos frescos</span>
+      <p>Con el aviso ya recibido, el inbox le pide a GHL el detalle actualizado de esa conversación puntual — no de todas, solo la que cambió.</p>
+    </div>
+    <div class="legend-item">
+      <span class="n">12</span><span class="title">El agente lo ve</span>
+      <p>El mensaje aparece en pantalla sin recargar la página y sin demora perceptible.</p>
+    </div>
+  </div>
+
+  <footer>
+    Corresponde al flujo "Entrante" documentado en <code>docs/ARCHITECTURE.md</code> §6.
+  </footer>
+</div>
+
+<script>mermaid.initialize({ startOnLoad: true, theme: "neutral" });</script>
+</body>
+</html>

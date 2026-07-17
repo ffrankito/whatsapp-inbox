@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<title>Mapa de conexiones — WhatsApp Inbox Security24</title>
+<style>
+  :root {
+    --bg: #f7f5f1; --surface: #ffffff; --surface-soft: #fbfaf7; --border: #e6e2d8;
+    --text: #2b2a27; --text-dim: #57534a; --text-faint: #948e80;
+    --accent: #2f9e85; --accent-dim: #1f7c67; --accent-tint: #e4f3ef;
+    --shadow-sm: 0 1px 2px rgba(43, 42, 39, 0.05);
+    --shadow-md: 0 10px 28px rgba(43, 42, 39, 0.07);
+    --sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #201e1a; --surface: #29261f; --surface-soft: #2e2b24; --border: #403c33;
+      --text: #f1ede4; --text-dim: #beb6a6; --text-faint: #8a8375;
+      --accent: #4dbfa2; --accent-dim: #6fd0b8; --accent-tint: #203c35;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.35); --shadow-md: 0 14px 32px rgba(0,0,0,.42);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #201e1a; --surface: #29261f; --surface-soft: #2e2b24; --border: #403c33;
+    --text: #f1ede4; --text-dim: #beb6a6; --text-faint: #8a8375;
+    --accent: #4dbfa2; --accent-dim: #6fd0b8; --accent-tint: #203c35;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.35); --shadow-md: 0 14px 32px rgba(0,0,0,.42);
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f5f1; --surface: #ffffff; --surface-soft: #fbfaf7; --border: #e6e2d8;
+    --text: #2b2a27; --text-dim: #57534a; --text-faint: #948e80;
+    --accent: #2f9e85; --accent-dim: #1f7c67; --accent-tint: #e4f3ef;
+    --shadow-sm: 0 1px 2px rgba(43,42,39,.05); --shadow-md: 0 10px 28px rgba(43,42,39,.07);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--sans);
+    -webkit-font-smoothing: antialiased; line-height: 1.55;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 20px 70px; }
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--accent-dim); margin-bottom: 10px;
+  }
+  h1 { font-size: 27px; margin: 0 0 8px; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; }
+  .lede { font-size: 14.5px; color: var(--text-dim); max-width: 66ch; margin: 0 0 28px; }
+
+  .diagram-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+    padding: 20px; box-shadow: var(--shadow-md); overflow-x: auto;
+  }
+  .diagram-card pre.mermaid { margin: 0; }
+
+  .legend {
+    margin-top: 30px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .legend-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; box-shadow: var(--shadow-sm);
+  }
+  .legend-item .title { font-size: 13.5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .legend-item .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .legend-item p { font-size: 12.5px; color: var(--text-dim); margin: 6px 0 0; }
+
+  .c-empresa { background: #c98a3f; }
+  .c-meta { background: #5b8fd6; }
+  .c-ghl { background: var(--accent); }
+  .c-dc { background: #a4634f; }
+
+  footer {
+    margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text-faint);
+  }
+  @media (max-width: 560px) { h1 { font-size: 22px; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="eyebrow">Security24 · Inbox WhatsApp</div>
+  <h1>Mapa de conexiones — cómo funciona todo junto</h1>
+  <p class="lede">
+    Los sistemas involucrados y cómo se conectan entre sí, en el diseño final (una vez
+    completadas todas las fases del roadmap). Cada bloque de color es un lugar/empresa
+    distinta — lo que cruza esos límites es lo que hay que configurar con cuidado.
+  </p>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+flowchart LR
+    subgraph CEL["📱 Celular del equipo"]
+        Contacto(["Dealer / Abonado /<br/>App Full Control"])
+        AppWA["App WhatsApp<br/>Business"]
+    end
+
+    subgraph METACLOUD["☁️ Meta / Kapso"]
+        Meta["WhatsApp Business<br/>Platform (Meta)"]
+        Kapso["Kapso<br/>(coexistencia, 3 números)"]
+    end
+
+    subgraph DC["🖥️ Data center Security24 (Docker)"]
+        Backend["Backend Next.js<br/>webhooks · API · SSE"]
+        DB[("Postgres<br/>token de GHL")]
+    end
+
+    subgraph GHLBOX["🗂️ GoHighLevel"]
+        GHLData["Conversations · Contacts<br/>Notes"]
+        GHLMenu["Custom Menu Link<br/>(iframe)"]
+    end
+
+    Agente(["Agente comercial"])
+
+    Contacto -->|escribe| AppWA
+    AppWA <-->|coexistencia| Meta
+    Meta <-->|webhook / API| Kapso
+    Kapso -->|webhook entrante| Backend
+    Backend -->|API: enviar mensaje| Kapso
+    Backend <-->|guarda / lee token OAuth| DB
+    Backend -->|upsert contacto,<br/>carga mensaje, notas| GHLData
+    GHLData -->|Delivery URL<br/>al responder| Backend
+    GHLMenu -->|carga el inbox<br/>en un iframe| Backend
+    Backend -->|SSE: aviso al instante| GHLMenu
+    Agente -->|usa GHL, ve el inbox<br/>embebido adentro| GHLMenu
+
+    classDef cel fill:#fdf1e3,stroke:#c98a3f,color:#2b2a27;
+    classDef meta fill:#e8f0fb,stroke:#5b8fd6,color:#2b2a27;
+    classDef dc fill:#f7e9e4,stroke:#a4634f,color:#2b2a27;
+    classDef ghl fill:#e4f3ef,stroke:#2f9e85,color:#2b2a27;
+    classDef agente fill:#fbfaf7,stroke:#948e80,color:#2b2a27;
+
+    class Contacto,AppWA cel;
+    class Meta,Kapso meta;
+    class Backend,DB dc;
+    class GHLData,GHLMenu ghl;
+    class Agente agente;
+    </pre>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <span class="title"><span class="dot c-empresa"></span>Celular del equipo</span>
+      <p>Nadie pierde esto: gracias a la coexistencia, los 3 números se siguen viendo en la app de WhatsApp de siempre, además de por el sistema.</p>
+    </div>
+    <div class="legend-item">
+      <span class="title"><span class="dot c-meta"></span>Meta / Kapso</span>
+      <p>Kapso es el puente aprobado por Meta que permite esa coexistencia y conecta los 3 números en una sola cuenta.</p>
+    </div>
+    <div class="legend-item">
+      <span class="title"><span class="dot c-dc"></span>Data center Security24</span>
+      <p>El backend propio, corriendo en Docker — es el único lugar que le habla directo tanto a Kapso como a GHL. Guarda solo lo mínimo (el token de acceso a GHL).</p>
+    </div>
+    <div class="legend-item">
+      <span class="title"><span class="dot c-ghl"></span>GoHighLevel</span>
+      <p>Fuente de verdad de conversaciones, contactos y notas. El inbox se ve embebido acá adentro, no como página aparte.</p>
+    </div>
+  </div>
+
+  <footer>
+    Corresponde al diseño final documentado en <code>docs/ARCHITECTURE.md</code>. Ver
+    <code>docs/flujo-entrante.html</code> para el paso a paso de un mensaje puntual, y
+    <code>docs/roadmap.html</code> para en qué orden se arma cada conexión.
+  </footer>
+</div>
+
+<script>mermaid.initialize({ startOnLoad: true, theme: "neutral" });</script>
+</body>
+</html>

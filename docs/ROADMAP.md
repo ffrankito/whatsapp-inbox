@@ -1,0 +1,135 @@
+# Roadmap — WhatsApp Inbox Security24
+
+Estado a hoy: el código base está armado y compila limpio (`npm run build` sin errores).
+
+**Orden revisado (segunda vuelta):** antes de invertir en GHL, van dos etapas de
+validación por separado — primero el diseño/UX con datos de mentira, después la
+conexión real a WhatsApp (vía Kapso) pero todavía como página suelta, sin embeber en
+GHL. Recién con las dos aprobadas se integra todo dentro de GHL.
+
+## Fase 0 — Hecho ✅
+
+- Arquitectura investigada y documentada (`docs/ARCHITECTURE.md`).
+- Proyecto Next.js 16 + Drizzle + Tailwind scaffoldeado, build limpio.
+- Rutas backend escritas: OAuth callback, sesión SSO, webhook de Kapso, Delivery URL de
+  GHL, y el CRUD de conversaciones/notas.
+- UI de `/inbox` armada (selector de 3 números, lista, hilo, composer, notas).
+- Marketplace App creada en el sandbox de developer (`Whatsapp inbox`, Client
+  ID/Secret/Shared Secret ya en `.env.local`).
+- Sub-cuenta de test creada (location `UnDaROg6tyLshlODU22O`).
+
+## Fase 1 — Demo visual con datos de ejemplo 👈 siguiente
+
+Objetivo: validar el diseño/UX con algo clickeable, antes de conectar nada real.
+
+- [x] "Modo demo" — con `DEMO_MODE=true`, las rutas `/api/conversaciones` y
+      `/api/conversaciones/[id]` devuelven datos de ejemplo fijos (mismo contenido de
+      `docs/preview.html`: Dealers/Abonados/Full Control con conversaciones de muestra)
+      en vez de llamar a GHL. Probado end-to-end (`src/lib/demo/`).
+- [x] En modo demo, "Enviar" y "Guardar nota" actualizan el estado en memoria del
+      servidor — sin mandar nada real a ningún lado.
+- [ ] Armar el `Dockerfile` (multi-stage, `next.config.ts` con `output: 'standalone'`) y
+      publicarlo en un servidor del data center — alcanza con acceso interno/VPN.
+- [ ] Mostrar internamente y juntar feedback de diseño.
+
+**Punto de decisión:** solo se pasa a la Fase 2 si el diseño se aprueba.
+
+## Fase 2 — Prueba con Kapso real, todavía standalone (sin GHL)
+
+Objetivo: validar que la conexión real a WhatsApp funciona de punta a punta, sin
+esperar a tener toda la integración de GHL armada. El `/inbox` sigue siendo una página
+suelta (no embebida) en esta etapa.
+
+- [ ] Conectar **uno de los 3 números por Kapso** (o los 3 de una, si se prefiere ir
+      directo) vía Embedded Signup, confirmando modo coexistencia.
+- [ ] **Código pendiente**: el webhook de Kapso, en vez de reenviar a GHL (que todavía no
+      está conectado), guarda el mensaje **en memoria del proceso** — no hace falta base
+      de datos para esto: como el número queda en coexistencia, el historial real sigue
+      viviendo en la app de WhatsApp del celular igual, así que no se pierde nada aunque
+      el server se reinicie.
+- [ ] El `/inbox` standalone muestra esos mensajes reales (mismo mecanismo de
+      actualización en tiempo real que se va a usar después con GHL).
+- [ ] Responder desde el `/inbox` → confirmar que efectivamente sale por WhatsApp de
+      verdad.
+- [ ] **Falta verificar contra un mensaje real**: el parser del webhook de Kapso
+      (`src/app/api/kapso/webhook/route.ts`) está armado según su documentación, pero no
+      probado todavía — acá es donde se termina de ajustar.
+
+**Punto de decisión:** solo se pasa a la Fase 3 (integración con GHL) si esto funciona
+bien.
+
+## Fase 3 — Infra real para GHL
+
+- [ ] Crear proyecto Postgres → `DATABASE_URL` (Supabase Cloud o self-hosted en el mismo
+      data center, a definir — no cambia código). Recién acá hace falta base de datos de
+      verdad, para guardar el token de instalación de GHL.
+- [ ] Correr `npm run db:generate` + `npm run db:migrate` para crear `ghl_installs`.
+- [ ] Exponer el contenedor con salida pública, detrás de un reverse proxy con TLS → esto
+      da el dominio real que falta en varios lugares. **Importante**: configurar el proxy
+      para no bufferear `/api/eventos` (rompe el tiempo real si lo hace).
+- [ ] Actualizar el **Redirect URL** de la Marketplace App con la URL real.
+- [ ] **Código pendiente**: escribir `src/lib/events.ts` (`EventEmitter` compartido en
+      memoria) y `src/app/api/eventos/route.ts` (SSE) si no se hizo ya en la Fase 2.
+
+## Fase 4 — Terminar de configurar la Marketplace App en GHL
+
+- [ ] Confirmar que los scopes de **Contacts** (readonly + write) quedaron tildados y
+      guardados.
+- [ ] Crear los **3 Conversation Providers** (Dealers / Abonados / App Full Control),
+      cada uno con su Delivery URL: `https://<dominio>/api/ghl/outbound?numero=<id>` →
+      guardar los 3 `conversationProviderId` en `.env.local`.
+- [ ] Crear el **Custom Menu Link** (`openMode: iframe`, url = `https://<dominio>/inbox`).
+- [ ] Instalar la app sobre la location de sandbox (`UnDaROg6tyLshlODU22O`).
+
+## Fase 5 — Seguridad (cerrar huecos antes de ir en serio)
+
+Se hace acá, antes de que el sistema empiece a manejar datos y acciones reales — no
+después. Ver `docs/ARCHITECTURE.md` §15 para el detalle de cada punto.
+
+- [ ] **Código pendiente, prioridad alta**: agregar validación de origen en
+      `/api/conversaciones/[id]/responder` y `/api/conversaciones/[id]/notas` — hoy son
+      vulnerables a CSRF porque la cookie de sesión usa `SameSite=None` (necesario para
+      el iframe), así que un sitio externo podría disparar acciones usando la sesión de
+      un agente logueado sin que se dé cuenta.
+- [ ] **Código pendiente**: rate limiting básico en `/api/kapso/webhook` y
+      `/api/ghl/outbound`.
+- [ ] Correr `npm audit fix` y revisar las 2 vulnerabilidades moderadas ya detectadas en
+      dependencias.
+- [ ] Definir si hace falta separar por rol quién ve qué número (hoy cualquiera con
+      acceso al Custom Menu Link ve los 3), o si alcanza con que todo el equipo comercial
+      vea todo.
+- [ ] Hardening del `Dockerfile`: imagen base mínima, el proceso no corre como root
+      adentro del contenedor, nada de herramientas de debug en la imagen final.
+- [ ] Confirmar que las notas creadas vía la API quedan con autoría clara en GHL (quién
+      la escribió), para que sirvan como auditoría real.
+
+## Fase 6 — Conectar todo: GHL pasa a ser la fuente de verdad
+
+- [ ] Completar la conexión de los números que falten por Kapso (si en la Fase 2 se
+      probó solo con uno).
+- [ ] **Código**: el webhook de Kapso deja de guardar en memoria y pasa a reenviar a GHL
+      (`POST /contacts/upsert` + `POST /conversations/messages/inbound`), como ya estaba
+      escrito desde el principio en `src/lib/ghl/client.ts`.
+- [ ] Mandar un WhatsApp real → confirmar que aparece en el inbox nativo de GHL y en
+      `/inbox`.
+- [ ] Responder desde `/inbox` → confirmar que llega de verdad y el estado pasa a
+      `delivered` en GHL.
+- [ ] Abrir `/inbox` desde el Custom Menu Link **dentro de GHL** → validar SSO sin login.
+- [ ] Probar los 3 números en paralelo → confirmar que el selector no los mezcla.
+- [ ] Agregar una nota → confirmar que aparece en el contacto en GHL.
+- [ ] Confirmar que el aviso en tiempo real sigue funcionando igual que en la Fase 2.
+
+## Fase 7 — Pasar a producción (cuenta real de Security24)
+
+- [ ] Instalar la misma Marketplace App sobre la location real (`QEmYqBPWjjngZgBXZfTf`).
+- [ ] Repetir la configuración de Kapso/Delivery URLs para los números reales si son
+      distintos de los usados en sandbox.
+- [ ] Prueba de humo final con tráfico real de dealers/abonados/Full Control.
+
+## Fase 8 — Después del lanzamiento (no bloqueante)
+
+- Definir si las notas necesitan más estructura que texto libre.
+- Vigilar rate limits de la API de GHL bajo uso real de varios agentes a la vez.
+- Si en algún momento el contenedor pasa a correr en más de una réplica (balanceo de
+  carga), el `EventEmitter` en memoria deja de alcanzar y hay que sumar un intermediario
+  compartido (Redis pub/sub) — no hace falta con una sola réplica.
