@@ -419,7 +419,8 @@ Lo que falta cerrar:
 3. **Sin control de acceso por rol** dentro del inbox — cualquier usuario de GHL con
    acceso al Custom Menu Link ve los 3 números, no hay separación por equipo todavía.
    A confirmar si hace falta.
-4. **Dockerfile todavía no escrito** — hardening pendiente de verificar: imagen base
-   mínima, proceso sin correr como root, sin herramientas de debug en la imagen final.
-5. **`npm audit`** marcó 2 vulnerabilidades moderadas en dependencias, sin revisar
+4. ~~Dockerfile todavía no escrito~~ — **resuelto**: `Dockerfile` multi-stage sobre
+   `node:22-alpine`, corre como usuario `nextjs` sin privilegios, probado localmente
+   (build + contenedor levantando + modo demo respondiendo desde adentro).
+5. **`npm audit`** marcó vulnerabilidades moderadas en dependencias, sin revisar
    todavía en detalle.

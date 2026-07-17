@@ -28,8 +28,12 @@ Objetivo: validar el diseño/UX con algo clickeable, antes de conectar nada real
       en vez de llamar a GHL. Probado end-to-end (`src/lib/demo/`).
 - [x] En modo demo, "Enviar" y "Guardar nota" actualizan el estado en memoria del
       servidor — sin mandar nada real a ningún lado.
-- [ ] Armar el `Dockerfile` (multi-stage, `next.config.ts` con `output: 'standalone'`) y
-      publicarlo en un servidor del data center — alcanza con acceso interno/VPN.
+- [x] `Dockerfile` multi-stage (`next.config.ts` con `output: 'standalone'`) — probado
+      localmente: build OK, contenedor levanta, corre como usuario no-root (`nextjs`), y
+      el modo demo respondió bien adentro del contenedor.
+- [ ] Publicarlo en un servidor del data center — alcanza con acceso interno/VPN por
+      ahora. Ver `docker-compose.yml` (necesita un `.env.production` con las variables de
+      `.env.example` completadas).
 - [ ] Mostrar internamente y juntar feedback de diseño.
 
 **Punto de decisión:** solo se pasa a la Fase 2 si el diseño se aprueba.
@@ -98,8 +102,8 @@ después. Ver `docs/ARCHITECTURE.md` §15 para el detalle de cada punto.
 - [ ] Definir si hace falta separar por rol quién ve qué número (hoy cualquiera con
       acceso al Custom Menu Link ve los 3), o si alcanza con que todo el equipo comercial
       vea todo.
-- [ ] Hardening del `Dockerfile`: imagen base mínima, el proceso no corre como root
-      adentro del contenedor, nada de herramientas de debug en la imagen final.
+- [x] Hardening básico del `Dockerfile` ya resuelto desde el arranque: imagen `alpine`
+      mínima, el proceso corre como usuario `nextjs` sin privilegios (no root).
 - [ ] Confirmar que las notas creadas vía la API quedan con autoría clara en GHL (quién
       la escribió), para que sirvan como auditoría real.
 
