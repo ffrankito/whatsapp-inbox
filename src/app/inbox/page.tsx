@@ -447,7 +447,7 @@ export default function InboxPage() {
       <div className="s24-inbox">
         <div className="s24-agente-gate">
           <div className="s24-agente-card">
-            <img className="mark" src="/logos24.jpg" alt="Security24" />
+            <img className="mark" src="/icon.svg" alt="Security24" />
             <h1>¿Quién sos?</h1>
             <p>Se usa para saber quién tiene tomada cada conversación.</p>
             <input
@@ -471,7 +471,7 @@ export default function InboxPage() {
     <div className="s24-inbox">
       <div className="s24-app-top">
         <div className="s24-title">
-          <img className="mark" src="/logos24.jpg" alt="Security24" />
+          <img className="mark" src="/icon.svg" alt="Security24" />
           <div>
             <h1>Inbox WhatsApp</h1>
             <div className="sub">Área comercial · Security24 · {agente.nombre}</div>
