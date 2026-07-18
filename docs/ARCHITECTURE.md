@@ -571,7 +571,37 @@ composer, pero limitado a como mucho una vez cada 20s por conversación
 no hay ningún teléfono real del otro lado, así que la ruta
 `/api/conversaciones/[id]/typing` no hace nada.
 
-### 19.4 Rediseño visual
+### 19.4 Grabar y mandar audio (nota de voz)
+
+Faltaba la pieza más obvia de "paridad con Huellas de Paz": grabar un audio con el
+micrófono y mandarlo, no solo adjuntar un archivo de audio ya existente desde el disco.
+Se portó la implementación de Huellas de Paz casi tal cual (`src/app/inbox/page.tsx`,
+funciones `iniciarGrabacion`/`detenerYEnviarGrabacion`/`cancelarGrabacion`):
+
+- **Por qué no alcanza con `MediaRecorder` (la API "obvia" del navegador):** produce
+  WebM o MP4 **fragmentado**, y WhatsApp lo rechaza en silencio (no da error, el audio
+  simplemente no se reproduce del otro lado) — confirmado por Huellas de Paz en
+  producción. Por eso se arma el MP3 a mano: Web Audio API (`AudioContext` +
+  `ScriptProcessorNode`) captura el PCM crudo del micrófono, y
+  [`@breezystack/lamejs`](https://www.npmjs.com/package/@breezystack/lamejs) lo
+  codifica a un MP3 estándar de verdad, mismo paquete y misma configuración
+  (44.1kHz, mono, 128kbps) que usa Huellas de Paz.
+- El botón de mic reemplaza al de "Enviar" cuando el campo de texto está vacío y no hay
+  ningún archivo adjunto en espera (igual que en WhatsApp real) — al empezar a grabar,
+  todo el composer cambia a un modo de grabación: botón de cancelar, punto rojo
+  pulsante + cronómetro, botón de enviar.
+- Al terminar de grabar, el MP3 resultante se manda por el mismo camino que cualquier
+  otro adjunto (`subirArchivo` → `POST /api/conversaciones/[id]/adjunto`) — no hizo
+  falta una ruta ni un almacenamiento aparte, a diferencia de Huellas de Paz (que sube
+  el audio a Supabase Storage para conseguirle una URL pública): acá alcanza con la
+  subida directa a la API de medios de Kapso que ya existía para el resto de los
+  adjuntos (ver §17), porque Kapso no necesita un link público — se manda por `id` de
+  media subido.
+- Maneja el permiso del micrófono explícitamente: si el navegador lo bloquea o no hay
+  micrófono, se muestra un aviso claro (con opción de "Permitir" si todavía no se le
+  preguntó al usuario) en vez de fallar en silencio.
+
+### 19.5 Rediseño visual
 
 Se revisó `D:\HuellasDePaz\HuellasDePaz\crm` (su pantalla de inbox) como referencia
 directa tras el segundo pedido de rediseño. Cambios concretos en

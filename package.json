@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "crypto-js": "^4.2.0",
     "drizzle-orm": "^0.45.2",
     "jose": "^6.2.3",

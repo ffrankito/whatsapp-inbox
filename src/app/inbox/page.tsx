@@ -73,6 +73,24 @@ export default function InboxPage() {
   const [enviando, setEnviando] = useState(false)
   const ultimoTypingRef = useRef(0)
 
+  // ── Grabar y mandar audio (paridad con Huellas de Paz) ───────────────────
+  const [grabando, setGrabando] = useState(false)
+  const [tiempoGrab, setTiempoGrab] = useState(0)
+  const [errorMic, setErrorMic] = useState<string | null>(null)
+  const [micDenegado, setMicDenegado] = useState(false)
+  const [prePromptMic, setPrePromptMic] = useState(false)
+  type ContextoGrabacion = {
+    stream: MediaStream
+    audioCtx: AudioContext
+    source: MediaStreamAudioSourceNode
+    proc: ScriptProcessorNode
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    enc: any
+    chunks: Int8Array[]
+  }
+  const grabacionRef = useRef<ContextoGrabacion | null>(null)
+  const grabTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   // ── Identidad del agente (solo hace falta mientras no haya SSO de GHL —
   // ver ARCHITECTURE.md, "Asignación / bloqueo entre agentes") ─────────────
   const [agente, setAgente] = useState<Agente | null>(null)
@@ -279,6 +297,83 @@ export default function InboxPage() {
     }).catch(() => {})
   }
 
+  // WhatsApp rechaza el audio fragmentado que produce MediaRecorder (webm/mp4
+  // fragmentado) — hay que armar un MP3 estándar a mano con Web Audio API + lamejs, igual
+  // que hace Huellas de Paz.
+  async function iniciarGrabacion() {
+    setPrePromptMic(false)
+    setMicDenegado(false)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const { Mp3Encoder } = await import('@breezystack/lamejs')
+      const audioCtx = new AudioContext({ sampleRate: 44100 })
+      const source = audioCtx.createMediaStreamSource(stream)
+      const proc = audioCtx.createScriptProcessor(8192, 1, 1)
+      const enc = new Mp3Encoder(1, 44100, 128)
+      const chunks: Int8Array[] = []
+
+      proc.onaudioprocess = (e: AudioProcessingEvent) => {
+        const pcmFloat = e.inputBuffer.getChannelData(0)
+        const pcm16 = new Int16Array(pcmFloat.length)
+        for (let i = 0; i < pcmFloat.length; i++) {
+          pcm16[i] = Math.max(-32768, Math.min(32767, Math.round(pcmFloat[i] * 32767)))
+        }
+        const encoded = enc.encodeBuffer(pcm16)
+        if (encoded.length > 0) chunks.push(new Int8Array(encoded))
+      }
+
+      source.connect(proc)
+      proc.connect(audioCtx.destination)
+      grabacionRef.current = { stream, audioCtx, source, proc, enc, chunks }
+      setGrabando(true)
+      setTiempoGrab(0)
+      grabTimerRef.current = setInterval(() => setTiempoGrab((t) => t + 1), 1000)
+    } catch (err: unknown) {
+      const nombre = err instanceof DOMException ? err.name : ''
+      const bloqueado = nombre === 'NotAllowedError' || nombre === 'PermissionDeniedError'
+      const noEncontrado = nombre === 'NotFoundError' || nombre === 'DevicesNotFoundError'
+      setMicDenegado(bloqueado || noEncontrado)
+      setPrePromptMic(true)
+      setErrorMic(noEncontrado ? 'No se encontró micrófono en este dispositivo.' : null)
+    }
+  }
+
+  function detenerYEnviarGrabacion() {
+    if (grabTimerRef.current) clearInterval(grabTimerRef.current)
+    const ctx = grabacionRef.current
+    if (!ctx) return
+    ctx.source.disconnect()
+    ctx.proc.disconnect()
+    ctx.stream.getTracks().forEach((t) => t.stop())
+    ctx.audioCtx.close()
+    const final = ctx.enc.flush()
+    if (final.length > 0) ctx.chunks.push(new Int8Array(final))
+    const blob = new Blob(ctx.chunks as unknown as BlobPart[], { type: 'audio/mpeg' })
+    grabacionRef.current = null
+    setGrabando(false)
+    setTiempoGrab(0)
+    const archivo = new File([blob], `audio-${Date.now()}.mp3`, { type: 'audio/mpeg' })
+    subirArchivo(archivo, '')
+  }
+
+  function cancelarGrabacion() {
+    if (grabTimerRef.current) clearInterval(grabTimerRef.current)
+    const ctx = grabacionRef.current
+    if (ctx) {
+      ctx.source.disconnect()
+      ctx.proc.disconnect()
+      ctx.stream.getTracks().forEach((t) => t.stop())
+      ctx.audioCtx.close()
+      grabacionRef.current = null
+    }
+    setGrabando(false)
+    setTiempoGrab(0)
+  }
+
+  function formatearTiempoGrab(seg: number): string {
+    return `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`
+  }
+
   async function guardarNota() {
     if (!seleccionada || !nota.trim()) return
     await fetch(`/api/conversaciones/${seleccionada.id}/notas`, {
@@ -450,45 +545,86 @@ export default function InboxPage() {
               </div>
 
               <div className="s24-composer-wrap">
-                {archivoAdj && (
-                  <div className="s24-adjunto-chip">
-                    <span className="ico">{iconoParaMime(archivoAdj.type)}</span>
-                    <span className="nombre">{archivoAdj.name}</span>
-                    <span className="peso">{(archivoAdj.size / 1024).toFixed(0)} KB</span>
-                    <button type="button" className="quitar" onClick={() => setArchivoAdj(null)} aria-label="Quitar archivo">×</button>
+                {prePromptMic && (
+                  <div className="s24-mic-prompt" data-denegado={String(micDenegado)}>
+                    <span className="ico">{micDenegado ? '🔒' : '🎤'}</span>
+                    <p>
+                      {micDenegado
+                        ? errorMic ?? 'Micrófono bloqueado. Habilitalo desde el ícono de candado de la barra de direcciones y recargá la página.'
+                        : 'Para grabar un audio necesitamos acceso al micrófono.'}
+                    </p>
+                    {!micDenegado && (
+                      <button type="button" className="s24-btn primary" onClick={iniciarGrabacion}>Permitir</button>
+                    )}
+                    <button type="button" className="cerrar" onClick={() => { setPrePromptMic(false); setMicDenegado(false) }} aria-label="Cerrar aviso">×</button>
                   </div>
                 )}
-                <div className="s24-composer">
-                  <label className="s24-attach" data-disabled={String(!puedeEscribir)}>
-                    📎
-                    <input
-                      type="file"
-                      hidden
-                      disabled={!puedeEscribir}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) setArchivoAdj(file)
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
-                  <input
-                    type="text"
-                    placeholder={
-                      archivoAdj ? 'Agregar un mensaje (opcional)…' : puedeEscribir ? 'Escribir una respuesta…' : 'Tomá la conversación para responder'
-                    }
-                    value={texto}
-                    disabled={!puedeEscribir}
-                    onChange={(e) => {
-                      setTexto(e.target.value)
-                      if (e.target.value) avisarEscribiendo()
-                    }}
-                    onKeyDown={(e) => e.key === 'Enter' && enviar()}
-                  />
-                  <button className="s24-btn primary" onClick={enviar} disabled={!puedeEscribir || enviando || (!texto.trim() && !archivoAdj)}>
-                    Enviar
-                  </button>
-                </div>
+
+                {grabando ? (
+                  <div className="s24-composer s24-recording">
+                    <button type="button" className="s24-attach" title="Cancelar" onClick={cancelarGrabacion}>✕</button>
+                    <div className="s24-recording-indicator">
+                      <span className="dot" />
+                      <span className="tiempo">{formatearTiempoGrab(tiempoGrab)}</span>
+                      <span className="label">Grabando…</span>
+                    </div>
+                    <button type="button" className="s24-btn primary" title="Detener y enviar" onClick={detenerYEnviarGrabacion}>Enviar</button>
+                  </div>
+                ) : (
+                  <>
+                    {archivoAdj && (
+                      <div className="s24-adjunto-chip">
+                        <span className="ico">{iconoParaMime(archivoAdj.type)}</span>
+                        <span className="nombre">{archivoAdj.name}</span>
+                        <span className="peso">{(archivoAdj.size / 1024).toFixed(0)} KB</span>
+                        <button type="button" className="quitar" onClick={() => setArchivoAdj(null)} aria-label="Quitar archivo">×</button>
+                      </div>
+                    )}
+                    <div className="s24-composer">
+                      <label className="s24-attach" data-disabled={String(!puedeEscribir)}>
+                        📎
+                        <input
+                          type="file"
+                          hidden
+                          disabled={!puedeEscribir}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) setArchivoAdj(file)
+                            e.target.value = ''
+                          }}
+                        />
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={
+                          archivoAdj ? 'Agregar un mensaje (opcional)…' : puedeEscribir ? 'Escribir una respuesta…' : 'Tomá la conversación para responder'
+                        }
+                        value={texto}
+                        disabled={!puedeEscribir}
+                        onChange={(e) => {
+                          setTexto(e.target.value)
+                          if (e.target.value) avisarEscribiendo()
+                        }}
+                        onKeyDown={(e) => e.key === 'Enter' && enviar()}
+                      />
+                      {texto.trim() || archivoAdj ? (
+                        <button className="s24-btn primary" onClick={enviar} disabled={!puedeEscribir || enviando}>
+                          Enviar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="s24-attach"
+                          title="Grabar audio"
+                          disabled={!puedeEscribir}
+                          onClick={iniciarGrabacion}
+                        >
+                          🎤
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="s24-notes">

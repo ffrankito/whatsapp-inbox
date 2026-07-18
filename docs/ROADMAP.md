@@ -41,8 +41,10 @@ Objetivo: validar el diseño/UX con algo clickeable, antes de conectar nada real
       los demás agentes de responder mientras está tomada — ver ARCHITECTURE.md §18.
 - [x] Paridad con Huellas de Paz (segunda ronda de feedback): adjuntar un archivo con
       texto (caption) en un solo mensaje como WhatsApp real, tildes de enviado/
-      entregado/leído, indicador de "escribiendo…" hacia el cliente, y rediseño visual
-      tomando su pantalla de inbox como referencia directa — ver ARCHITECTURE.md §19.
+      entregado/leído, indicador de "escribiendo…" hacia el cliente, grabar y mandar
+      notas de voz con el micrófono (MP3 real vía `@breezystack/lamejs`, no el formato
+      fragmentado que WhatsApp rechaza), y rediseño visual tomando su pantalla de inbox
+      como referencia directa — ver ARCHITECTURE.md §19.
 - [ ] Publicarlo en un servidor del data center — alcanza con acceso interno/VPN por
       ahora. Ver `docker-compose.yml` (necesita un `.env.production` con las variables de
       `.env.example` completadas).

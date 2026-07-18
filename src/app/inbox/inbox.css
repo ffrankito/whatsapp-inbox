@@ -254,6 +254,37 @@
 }
 .s24-adjunto-chip .quitar:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
 
+/* ── Grabación de audio ───────────────────────────────────────────────────── */
+.s24-mic-prompt {
+  display: flex; align-items: center; gap: 10px; margin: 12px 18px 0;
+  padding: 9px 12px; border-radius: 12px;
+  background: var(--accent-tint); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.s24-mic-prompt[data-denegado="true"] {
+  background: var(--critical-tint); border-color: color-mix(in srgb, var(--critical) 30%, transparent);
+}
+.s24-mic-prompt .ico { font-size: 16px; flex: none; }
+.s24-mic-prompt p { margin: 0; font-size: 12.5px; color: var(--accent-2); flex: 1; }
+.s24-mic-prompt[data-denegado="true"] p { color: var(--critical); }
+.s24-mic-prompt .cerrar {
+  all: unset; cursor: pointer; flex: none; width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1;
+  color: var(--text-faint);
+}
+.s24-mic-prompt .cerrar:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
+
+.s24-recording-indicator { flex: 1; display: flex; align-items: center; gap: 9px; padding: 0 4px; }
+.s24-recording-indicator .dot {
+  width: 10px; height: 10px; border-radius: 50%; background: var(--critical);
+  animation: s24-pulse-rec 1s infinite;
+}
+.s24-recording-indicator .tiempo { font-size: 14px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.s24-recording-indicator .label { font-size: 12px; color: var(--text-faint); }
+@keyframes s24-pulse-rec {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
 /* ── Notas / auditoría ────────────────────────────────────────────────────── */
 .s24-notes { border-top: 1px solid var(--border); padding: 12px 18px 16px; background: var(--surface); }
 .s24-notes .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
