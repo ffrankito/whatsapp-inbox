@@ -25,3 +25,12 @@ function ipDe(request: NextRequest): string {
 export function webhookLimitado(request: NextRequest, ruta: string): boolean {
   return limitado(`${ruta}:${ipDe(request)}`, 60, 60_000)
 }
+
+// Para las rutas que un agente dispara con clicks (responder, tomar, adjunto, etc.) —
+// mientras la identidad de agente sea auto-declarada por header y no haya login real
+// (ver ARCHITECTURE.md §18 y §23), esto es la única traba contra alguien con acceso a la
+// API mandando pedidos en loop. 120/min por IP y por ruta: muy por encima de lo que
+// cualquier humano clickeando llega a generar, pero corta un script.
+export function accionLimitada(request: NextRequest, ruta: string): boolean {
+  return limitado(`accion-${ruta}:${ipDe(request)}`, 120, 60_000)
+}

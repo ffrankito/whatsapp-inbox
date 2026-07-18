@@ -7,6 +7,7 @@ import { agregarMensajeDemo } from '@/lib/demo/store'
 import { obtenerConversacion as obtenerStandalone, agregarMensaje as agregarMensajeStandalone } from '@/lib/standalone/store'
 import { enviarPorKapso } from '@/lib/kapso/client'
 import { pedidoConfiable } from '@/lib/csrf'
+import { accionLimitada } from '@/lib/rateLimit'
 import { emitirEvento } from '@/lib/events'
 import { agenteActual } from '@/lib/agente'
 import { obtenerConversacion as obtenerDemo, puedeEscribirDemo } from '@/lib/demo/store'
@@ -28,6 +29,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (!pedidoConfiable(request)) {
     return NextResponse.json({ error: 'Origen no confiable' }, { status: 403 })
+  }
+  if (accionLimitada(request, 'conversaciones-responder')) {
+    return NextResponse.json({ error: 'rate limited' }, { status: 429 })
   }
 
   const { contactId, numero: numeroId, message }: Body = await request.json()

@@ -104,6 +104,8 @@ export default function InboxPage() {
   useEffect(() => {
     try {
       const guardado = localStorage.getItem(AGENTE_STORAGE_KEY)
+      // localStorage no existe durante el render en el server, solo se puede leer acá.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (guardado) setAgente(JSON.parse(guardado))
     } catch {
       // localStorage no disponible o corrupto — se vuelve a pedir el nombre
@@ -214,6 +216,8 @@ export default function InboxPage() {
   // ── Agentes conocidos: carga inicial + poll de respaldo lento ────────────
   useEffect(() => {
     if (!ssoListo) return
+    // Fetch inicial + polling de datos externos, no hay forma de derivarlo del render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     cargarAgentes()
     const interval = setInterval(cargarAgentes, POLL_RESPALDO_MS)
     return () => clearInterval(interval)
@@ -221,6 +225,9 @@ export default function InboxPage() {
 
   // ── Hilo de la conversación seleccionada: carga inicial + poll de respaldo ─
   useEffect(() => {
+    // Reset intencional del borrador al cambiar de conversación (si no, un archivo
+    // cargado para un contacto podría terminar mandándose a otro).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTexto('')
     setArchivoAdj(null)
     if (!seleccionadaId) {
@@ -384,6 +391,9 @@ export default function InboxPage() {
     grabacionRef.current = null
     setGrabando(false)
     setTiempoGrab(0)
+    // Date.now() acá es para el nombre del archivo, dentro de un handler de click, no
+    // durante el render — el linter lo marca igual por ser un closure del componente.
+    // eslint-disable-next-line react-hooks/purity
     const archivo = new File([blob], `audio-${Date.now()}.mp3`, { type: 'audio/mpeg' })
     subirArchivo(archivo, '')
   }

@@ -719,30 +719,34 @@ mensaje) a un cliente de una conversación que ni tenía tomada. Impacto bajo (n
 corrompe datos, solo un efecto molesto/confuso hacia el cliente), pero corregido por
 consistencia con el resto de las rutas.
 
-**Otros hallazgos de la auditoría, sin corregir por ahora (severidad baja, ya documentados
-o aceptados a propósito para esta etapa):**
-- Las rutas internas que modifican algo (`responder`, `notas`, `adjunto`, `asignar`,
-  `liberar`, `cerrar`, `traspasar`, `typing`) no tienen rate limiting — solo los 2
-  webhooks externos (`kapso/webhook`, `ghl/outbound`) lo tienen. Como la identidad de
-  agente en Fases 1–2 es auto-declarada por header (no hay login real, ver §18), esto
-  significa que cualquiera con acceso de red al servidor puede actuar como cualquier
-  agente sin límite de ritmo. Es un riesgo aceptado **mientras el despliegue sea interno/
-  VPN** (así está pensada la Fase 1 en el roadmap) — pero es importante no exponer esto a
-  internet público antes de que la Fase 6 traiga autenticación real vía GHL.
-- `POST /api/conversaciones/[id]/adjunto` lee el archivo completo a memoria
-  (`request.formData()`) antes de chequear el límite de 8MB — no hay un límite de tamaño
-  de body a nivel de servidor, así que alguien podría mandar un body mucho más grande y
-  hacer que el proceso lo bufferee igual antes de rechazarlo. Se puede mitigar en la
-  Fase 3 configurando un límite de tamaño de body en el reverse proxy — no urgente para
-  un despliegue interno.
-- `npx eslint` marca 4 errores de las reglas nuevas de React Compiler
-  (`react-hooks/set-state-in-effect`, `react-hooks/purity`) en `src/app/inbox/page.tsx` —
-  revisados, son patrones estándar (leer localStorage al montar, resetear estado al
-  cambiar de conversación) mal clasificados por una regla nueva y estricta, no bugs
-  reales. `next build` no corre `eslint` por default en esta versión, así que esto no
-  bloquea nada — pero tampoco hay nada hoy que lo bloquee en un CI si se agrega uno más
-  adelante, vale la pena revisarlo entonces.
+**Resto de los hallazgos de la auditoría — también corregidos, a pedido explícito de
+revisar todo lo que había quedado pendiente:**
+- **Rate limiting en las rutas internas.** `responder`, `notas`, `adjunto`, `asignar`,
+  `liberar`, `cerrar`, `traspasar` y `typing` solo tenían la validación de origen
+  (`x-s24-inbox`), sin ningún límite de ritmo — a diferencia de los 2 webhooks externos.
+  Como la identidad de agente en Fases 1–2 es auto-declarada por header (no hay login
+  real, ver §18), cualquiera con acceso de red al servidor podía golpear estas rutas sin
+  freno. Se agregó `accionLimitada` (`src/lib/rateLimit.ts`): 120 pedidos/minuto por IP y
+  por ruta — muy por encima de lo que un humano clickeando llega a generar, pero corta un
+  script. Probado con una ráfaga real de 125 pedidos seguidos a `/liberar`: el pedido 121
+  en adelante devolvió `429`. **Sigue siendo, ante todo, un riesgo a no exponer a
+  internet público antes de que la Fase 6 traiga autenticación real vía GHL** — el rate
+  limit ayuda contra un flood, no reemplaza tener identidad real.
+- **Límite de tamaño de body antes de bufferear.** `POST /.../adjunto` chequeaba el
+  límite de 8MB recién después de `request.formData()` (que ya había leído todo el body a
+  memoria). Ahora se corta antes, comparando el header `Content-Length` declarado contra
+  el límite (con margen para el overhead del multipart) — probado: un pedido con
+  `Content-Length: 20MB` devuelve `413` sin llegar a leer el body.
+- **Los 4 errores de eslint** (`react-hooks/set-state-in-effect` ×3,
+  `react-hooks/purity` ×1) en `src/app/inbox/page.tsx` — confirmados como patrones
+  estándar sin alternativa real (leer localStorage al montar, fetch+poll de datos
+  externos, resetear el borrador al cambiar de conversación, `Date.now()` dentro de un
+  handler de click, no del render) mal clasificados por una regla nueva y estricta.
+  Se documentaron con `eslint-disable-next-line` puntual + comentario explicando por qué,
+  en vez de dejarlos sueltos o reescribir código que ya estaba bien. `npx eslint` corre
+  limpio ahora (0 errores; quedan solo warnings de perf de `<img>` y una variable sin usar
+  en `ghl/client.ts`, ninguno relevante para este proyecto).
 - `npm audit`: mismas 6 vulnerabilidades moderadas ya revisadas en §15 (esbuild/postcss,
-  herramientas de build/dev, sin exploit posible acá) — sin cambios.
+  herramientas de build/dev, sin exploit posible acá) — sin cambios, no se tocan.
 - No se encontraron secretos commiteados: solo `.env.example` está trackeado en git, y
   sus valores están todos vacíos.

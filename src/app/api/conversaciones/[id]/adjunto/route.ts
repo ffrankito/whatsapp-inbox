@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { NUMEROS, type NumeroId } from '@/lib/ghl/numeros'
 import { DEMO_MODE, STANDALONE_MODE } from '@/lib/mode'
 import { pedidoConfiable } from '@/lib/csrf'
+import { accionLimitada } from '@/lib/rateLimit'
 import { agenteActual } from '@/lib/agente'
 import { obtenerConversacion as obtenerDemo, puedeEscribirDemo, agregarMensajeDemo } from '@/lib/demo/store'
 import { obtenerConversacion as obtenerStandalone, puedeEscribir, agregarMensaje as agregarMensajeStandalone } from '@/lib/standalone/store'
@@ -25,6 +26,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (!pedidoConfiable(request)) {
     return NextResponse.json({ error: 'Origen no confiable' }, { status: 403 })
+  }
+  if (accionLimitada(request, 'conversaciones-adjunto')) {
+    return NextResponse.json({ error: 'rate limited' }, { status: 429 })
+  }
+
+  // Cortar por Content-Length ANTES de bufferear el body entero con formData() — así una
+  // subida mucho más grande que el límite no fuerza al proceso a leerla igual antes de
+  // rechazarla (margen de 64KB para el overhead propio del multipart).
+  const declarado = Number(request.headers.get('content-length') ?? 0)
+  if (declarado > TAMANO_MAXIMO + 64 * 1024) {
+    return NextResponse.json({ error: 'El archivo es demasiado grande (máximo 8MB)' }, { status: 413 })
   }
 
   const formData = await request.formData()

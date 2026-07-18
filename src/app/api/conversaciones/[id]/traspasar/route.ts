@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { DEMO_MODE, STANDALONE_MODE } from '@/lib/mode'
 import { pedidoConfiable } from '@/lib/csrf'
+import { accionLimitada } from '@/lib/rateLimit'
 import { agenteActual } from '@/lib/agente'
 import { traspasarConversacionDemo } from '@/lib/demo/store'
 import { traspasarConversacion } from '@/lib/standalone/store'
@@ -15,6 +16,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (!pedidoConfiable(request)) {
     return NextResponse.json({ error: 'Origen no confiable' }, { status: 403 })
+  }
+  if (accionLimitada(request, 'conversaciones-traspasar')) {
+    return NextResponse.json({ error: 'rate limited' }, { status: 429 })
   }
 
   const agente = await agenteActual(request)

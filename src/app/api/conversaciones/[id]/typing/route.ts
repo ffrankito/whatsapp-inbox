@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { NUMEROS, type NumeroId } from '@/lib/ghl/numeros'
 import { DEMO_MODE, STANDALONE_MODE } from '@/lib/mode'
 import { pedidoConfiable } from '@/lib/csrf'
+import { accionLimitada } from '@/lib/rateLimit'
 import { agenteActual } from '@/lib/agente'
 import { obtenerConversacion, ultimoMensajeEntranteWaId, puedeEscribir } from '@/lib/standalone/store'
 import { enviarIndicadorEscribiendo } from '@/lib/kapso/client'
@@ -16,6 +17,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (!pedidoConfiable(request)) {
     return NextResponse.json({ error: 'Origen no confiable' }, { status: 403 })
+  }
+  if (accionLimitada(request, 'conversaciones-typing')) {
+    return NextResponse.json({ error: 'rate limited' }, { status: 429 })
   }
 
   if (DEMO_MODE) {
