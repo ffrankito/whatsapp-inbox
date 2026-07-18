@@ -4,6 +4,7 @@ import { NUMEROS, type NumeroId } from '@/lib/ghl/numeros'
 import { enviarPorKapso } from '@/lib/kapso/client'
 import { actualizarEstadoMensaje } from '@/lib/ghl/client'
 import { webhookLimitado } from '@/lib/rateLimit'
+import { emitirEvento } from '@/lib/events'
 
 type OutboundPayload = {
   contactId: string
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
   try {
     await enviarPorKapso(numero, payload.phone, payload.message)
     await actualizarEstadoMensaje(payload.locationId, payload.messageId, 'delivered')
+    emitirEvento({ tipo: 'estado', numero: numero.id })
   } catch (err) {
     console.error(`[GHL outbound/${numero.id}] error enviando por Kapso:`, err)
     await actualizarEstadoMensaje(payload.locationId, payload.messageId, 'failed').catch(() => {})

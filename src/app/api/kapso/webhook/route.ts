@@ -5,6 +5,7 @@ import { upsertContact, agregarMensajeEntrante } from '@/lib/ghl/client'
 import { STANDALONE_MODE } from '@/lib/mode'
 import { encontrarOCrearConversacion, agregarMensaje } from '@/lib/standalone/store'
 import { webhookLimitado } from '@/lib/rateLimit'
+import { emitirEvento } from '@/lib/events'
 
 // TODO: reemplazar por la location real una vez definido dónde vive cada instalación
 // (hoy: sandbox de developer, location de test UnDaROg6tyLshlODU22O — ver ARCHITECTURE.md)
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
   if (STANDALONE_MODE) {
     const conv = encontrarOCrearConversacion(numero.id, telefono, nombreContacto)
     agregarMensaje(conv.id, texto, 'inbound')
+    emitirEvento({ tipo: 'mensaje', numero: numero.id })
     return NextResponse.json({ ok: true })
   }
 
@@ -74,6 +76,7 @@ export async function POST(request: NextRequest) {
       conversationProviderId: numero.conversationProviderId,
       message: texto,
     })
+    emitirEvento({ tipo: 'mensaje', numero: numero.id })
   } catch (err) {
     console.error(`[Kapso webhook] error relayeando mensaje de ${numero.id} a GHL:`, err)
     return NextResponse.json({ error: 'relay failed' }, { status: 502 })

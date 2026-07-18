@@ -152,15 +152,20 @@ servicio externo. Se saca Supabase Realtime del diseño — una dependencia exte
 y un salto de red menos en el camino más urgente del sistema (avisar que llegó un
 mensaje).
 
-Mecanismo: un `EventEmitter` de Node compartido (`src/lib/events.ts`). Los webhooks
-(`/api/kapso/webhook`, `/api/ghl/outbound`) emiten un evento chico
-(`{ tipo, numero, conversationId }`) después de procesar el mensaje. La ruta
-`/api/eventos` (SSE) mantiene la conexión abierta con el navegador y reenvía cada evento
-apenas llega. El inbox, al recibir el evento, vuelve a pedir los datos frescos de esa
-conversación puntual — misma lógica de fetch que ya existía, solo que ahora se dispara
-por evento en vez de por timer.
+**Implementado y probado.** Mecanismo: un `EventEmitter` de Node compartido
+(`src/lib/events.ts`). Los webhooks (`/api/kapso/webhook`, `/api/ghl/outbound`,
+`/api/conversaciones/[id]/responder` en modo standalone) emiten un evento chico
+(`{ tipo: "mensaje" | "estado", numero }`) después de procesar el mensaje — se
+simplificó a nivel de número en vez de conversación puntual, así el inbox simplemente
+refresca la lista y (si hay una abierta) la conversación seleccionada del número activo,
+sin depender de poder correlacionar el `conversationId` exacto en todos los casos
+(el payload del Delivery URL de GHL, por ejemplo, no lo incluye). La ruta `/api/eventos`
+(SSE) mantiene la conexión abierta con el navegador y reenvía cada evento apenas llega.
 
-Se mantiene un poll de respaldo, mucho más espaciado (30–60s), como red de seguridad por
+Prueba real hecha: conexión SSE abierta + webhook de Kapso simulado (firmado) →
+el evento `{"tipo":"mensaje","numero":"dealers"}` llegó al cliente al instante.
+
+Se mantiene un poll de respaldo, mucho más espaciado (45s), como red de seguridad por
 si se corta la conexión SSE (reinicio del contenedor, deploy, etc.) — no como mecanismo
 principal.
 
@@ -180,9 +185,9 @@ Meta  → Kapso (coexistencia)
   → POST /contacts/upsert (GHL)            [resuelve/crea el contacto por teléfono]
   → POST /conversations/messages/inbound   [type: WhatsApp, conversationProviderId del número]
   → GHL crea/actualiza la conversación
-  → emite evento en el EventEmitter interno {tipo: "mensaje", numero, conversationId}
+  → emite evento en el EventEmitter interno {tipo: "mensaje", numero}
   → /api/eventos (SSE) lo reenvía a los navegadores conectados
-  → nuestro /inbox refetchea esa conversación al instante
+  → nuestro /inbox refetchea la lista y la conversación abierta (si es de ese número)
 ```
 
 ### Saliente (un agente responde, desde nuestro inbox o desde el nativo de GHL)
@@ -193,9 +198,9 @@ agente responde
   → resolvemos el número por "conversationProviderId"
   → API de Kapso → Meta (coexistencia) → envío real
   → PUT /conversations/messages/{id}/status   [delivered | failed]
-  → emite evento en el EventEmitter interno {tipo: "estado", numero, conversationId, messageId}
+  → emite evento en el EventEmitter interno {tipo: "estado", numero}
   → /api/eventos (SSE) lo reenvía a los navegadores conectados
-  → nuestro /inbox actualiza el estado del mensaje (✓ entregado / ✕ falló) al instante
+  → nuestro /inbox refetchea la conversación abierta (si es de ese número)
 ```
 
 ### Notas / auditoría

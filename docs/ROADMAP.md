@@ -75,8 +75,11 @@ bien.
       da el dominio real que falta en varios lugares. **Importante**: configurar el proxy
       para no bufferear `/api/eventos` (rompe el tiempo real si lo hace).
 - [ ] Actualizar el **Redirect URL** de la Marketplace App con la URL real.
-- [ ] **Código pendiente**: escribir `src/lib/events.ts` (`EventEmitter` compartido en
-      memoria) y `src/app/api/eventos/route.ts` (SSE) si no se hizo ya en la Fase 2.
+- [x] Tiempo real (`src/lib/events.ts` + `/api/eventos` SSE) — adelantado y probado ya
+      en la Fase 2: conexión SSE abierta, disparé un webhook simulado, y el evento
+      `{"tipo":"mensaje","numero":"dealers"}` llegó al cliente al instante. `/inbox` ya
+      está conectado a esto (con poll de respaldo cada 45s por si se corta el SSE).
+      Sigue pendiente acá: confirmar que el reverse proxy real no bufferea esta ruta.
 
 ## Fase 4 — Terminar de configurar la Marketplace App en GHL
 

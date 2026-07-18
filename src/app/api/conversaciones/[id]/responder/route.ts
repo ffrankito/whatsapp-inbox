@@ -7,6 +7,7 @@ import { agregarMensajeDemo } from '@/lib/demo/store'
 import { obtenerConversacion as obtenerStandalone, agregarMensaje as agregarMensajeStandalone } from '@/lib/standalone/store'
 import { enviarPorKapso } from '@/lib/kapso/client'
 import { pedidoConfiable } from '@/lib/csrf'
+import { emitirEvento } from '@/lib/events'
 
 type Body = {
   contactId: string
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'No se pudo enviar el mensaje' }, { status: 502 })
     }
     const nuevo = agregarMensajeStandalone(id, message, 'outbound')
+    emitirEvento({ tipo: 'mensaje', numero: numero.id })
     return NextResponse.json({ conversationId: id, messageId: nuevo?.id, status: 'delivered' })
   }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './inbox.css'
 
 // NOTA: los nombres de campo de GHL (ConversationSchema / GetMessageResponseDto) están
@@ -32,7 +32,9 @@ type Mensaje = {
   dateAdded: string
 }
 
-const POLL_MS = 5000
+// Tiempo real vía SSE (/api/eventos) — este poll es solo red de seguridad por si se
+// corta la conexión SSE (reinicio del contenedor, deploy). Ver ARCHITECTURE.md §5.1.
+const POLL_RESPALDO_MS = 45_000
 
 export default function InboxPage() {
   const [ssoListo, setSsoListo] = useState(false)
@@ -73,57 +75,77 @@ export default function InboxPage() {
     }
   }, [])
 
-  // ── Lista de conversaciones (poll) ────────────────────────────────────────
+  // Refs para que el listener de SSE (montado una sola vez) siempre lea el número/
+  // conversación actuales sin tener que reabrir la conexión en cada cambio.
+  const numeroActivoRef = useRef(numeroActivo)
+  const seleccionadaIdRef = useRef(seleccionadaId)
+  useEffect(() => {
+    numeroActivoRef.current = numeroActivo
+  }, [numeroActivo])
+  useEffect(() => {
+    seleccionadaIdRef.current = seleccionadaId
+  }, [seleccionadaId])
+
+  const cargarConversaciones = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/conversaciones?numero=${numeroActivoRef.current}`)
+      if (!res.ok) return
+      const data = await res.json()
+      setConversaciones(data.conversations ?? [])
+    } catch {
+      // silencioso: el próximo evento/poll de respaldo reintenta
+    }
+  }, [])
+
+  const cargarMensajes = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/conversaciones/${id}`)
+      if (!res.ok) return
+      const data = await res.json()
+      const lista: Mensaje[] = data?.messages?.messages ?? data?.messages ?? []
+      setMensajes(lista)
+    } catch {
+      // silencioso: el próximo evento/poll de respaldo reintenta
+    }
+  }, [])
+
+  // ── Lista de conversaciones: carga inicial + poll de respaldo lento ──────
   useEffect(() => {
     if (!ssoListo) return
+    cargarConversaciones()
+    const interval = setInterval(cargarConversaciones, POLL_RESPALDO_MS)
+    return () => clearInterval(interval)
+  }, [ssoListo, numeroActivo, cargarConversaciones])
 
-    let cancelado = false
-    async function cargar() {
-      try {
-        const res = await fetch(`/api/conversaciones?numero=${numeroActivo}`)
-        if (!res.ok) return
-        const data = await res.json()
-        if (!cancelado) setConversaciones(data.conversations ?? [])
-      } catch {
-        // silencioso: el próximo poll reintenta
-      }
-    }
-
-    cargar()
-    const interval = setInterval(cargar, POLL_MS)
-    return () => {
-      cancelado = true
-      clearInterval(interval)
-    }
-  }, [ssoListo, numeroActivo])
-
-  // ── Hilo de la conversación seleccionada (poll) ───────────────────────────
+  // ── Hilo de la conversación seleccionada: carga inicial + poll de respaldo ─
   useEffect(() => {
     if (!seleccionadaId) {
       setMensajes([])
       return
     }
+    cargarMensajes(seleccionadaId)
+    const interval = setInterval(() => cargarMensajes(seleccionadaId), POLL_RESPALDO_MS)
+    return () => clearInterval(interval)
+  }, [seleccionadaId, cargarMensajes])
 
-    let cancelado = false
-    async function cargar() {
+  // ── Tiempo real: una sola conexión SSE, reacciona a eventos del número activo ─
+  useEffect(() => {
+    if (!ssoListo) return
+
+    const es = new EventSource('/api/eventos')
+    es.onmessage = (event) => {
       try {
-        const res = await fetch(`/api/conversaciones/${seleccionadaId}`)
-        if (!res.ok) return
-        const data = await res.json()
-        const lista: Mensaje[] = data?.messages?.messages ?? data?.messages ?? []
-        if (!cancelado) setMensajes(lista)
+        const evento = JSON.parse(event.data)
+        if (evento?.numero !== numeroActivoRef.current) return
+        cargarConversaciones()
+        if (seleccionadaIdRef.current) cargarMensajes(seleccionadaIdRef.current)
       } catch {
-        // silencioso: el próximo poll reintenta
+        // evento no parseable (ej. el ping), se ignora
       }
     }
 
-    cargar()
-    const interval = setInterval(cargar, POLL_MS)
-    return () => {
-      cancelado = true
-      clearInterval(interval)
-    }
-  }, [seleccionadaId])
+    return () => es.close()
+  }, [ssoListo, cargarConversaciones, cargarMensajes])
 
   const seleccionada = conversaciones.find((c) => c.id === seleccionadaId) ?? null
 
