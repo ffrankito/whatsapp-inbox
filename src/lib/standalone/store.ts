@@ -117,9 +117,11 @@ export function ultimoMensajeEntranteWaId(conv: StandaloneConversacion): string 
 
 export type ResultadoAsignacion = { ok: true } | { ok: false; motivo: 'no_existe' | 'ya_asignada'; asignadaA?: Agente }
 
+// Hay que TOMAR la conversación antes de poder responder — no alcanza con que esté
+// libre. Antes esto dejaba responder a cualquiera mientras nadie más la hubiera tomado,
+// que no es lo que se pidió (bloqueo real: primero tomar, después escribir).
 export function puedeEscribir(conv: StandaloneConversacion, agenteId: string): boolean {
-  if (conv.estado === 'cerrada') return false
-  if (conv.estado === 'sin_asignar') return true
+  if (conv.estado !== 'asignada') return false
   return conv.asignadaA?.id === agenteId
 }
 

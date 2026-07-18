@@ -226,7 +226,9 @@ export default function InboxPage() {
 
   const seleccionada = conversaciones.find((c) => c.id === seleccionadaId) ?? null
   const esMia = !!seleccionada && !!agente && seleccionada.asignadaA?.id === agente.id
-  const puedeEscribir = !!seleccionada && seleccionada.estado !== 'cerrada' && (!seleccionada.asignadaA || esMia)
+  // Hay que tomar la conversación antes de poder responder — no alcanza con que esté
+  // libre (antes dejaba responder a cualquiera mientras nadie más la hubiera tomado).
+  const puedeEscribir = !!seleccionada && seleccionada.estado === 'asignada' && esMia
 
   async function refrescarTodo() {
     await cargarConversaciones()
@@ -524,6 +526,9 @@ export default function InboxPage() {
                 </div>
               </div>
 
+              {(!seleccionada.estado || seleccionada.estado === 'sin_asignar') && (
+                <div className="s24-lock-banner">Tomá esta conversación para poder responder.</div>
+              )}
               {!puedeEscribir && seleccionada.estado === 'asignada' && !esMia && (
                 <div className="s24-lock-banner">🔒 Esta conversación la tiene tomada <b>{seleccionada.asignadaA?.nombre}</b> — no podés responder hasta que la libere.</div>
               )}
@@ -547,7 +552,7 @@ export default function InboxPage() {
               <div className="s24-composer-wrap">
                 {prePromptMic && (
                   <div className="s24-mic-prompt" data-denegado={String(micDenegado)}>
-                    <span className="ico">{micDenegado ? '🔒' : '🎤'}</span>
+                    <span className="ico">{micDenegado ? <IconoCandado /> : <IconoMic />}</span>
                     <p>
                       {micDenegado
                         ? errorMic ?? 'Micrófono bloqueado. Habilitalo desde el ícono de candado de la barra de direcciones y recargá la página.'
@@ -556,19 +561,19 @@ export default function InboxPage() {
                     {!micDenegado && (
                       <button type="button" className="s24-btn primary" onClick={iniciarGrabacion}>Permitir</button>
                     )}
-                    <button type="button" className="cerrar" onClick={() => { setPrePromptMic(false); setMicDenegado(false) }} aria-label="Cerrar aviso">×</button>
+                    <button type="button" className="cerrar" onClick={() => { setPrePromptMic(false); setMicDenegado(false) }} aria-label="Cerrar aviso"><IconoX small /></button>
                   </div>
                 )}
 
                 {grabando ? (
                   <div className="s24-composer s24-recording">
-                    <button type="button" className="s24-attach" title="Cancelar" onClick={cancelarGrabacion}>✕</button>
+                    <button type="button" className="s24-attach" title="Cancelar" onClick={cancelarGrabacion}><IconoX /></button>
                     <div className="s24-recording-indicator">
                       <span className="dot" />
                       <span className="tiempo">{formatearTiempoGrab(tiempoGrab)}</span>
                       <span className="label">Grabando…</span>
                     </div>
-                    <button type="button" className="s24-btn primary" title="Detener y enviar" onClick={detenerYEnviarGrabacion}>Enviar</button>
+                    <button type="button" className="s24-btn primary round" title="Detener y enviar" onClick={detenerYEnviarGrabacion}><IconoEnviar /></button>
                   </div>
                 ) : (
                   <>
@@ -577,12 +582,12 @@ export default function InboxPage() {
                         <span className="ico">{iconoParaMime(archivoAdj.type)}</span>
                         <span className="nombre">{archivoAdj.name}</span>
                         <span className="peso">{(archivoAdj.size / 1024).toFixed(0)} KB</span>
-                        <button type="button" className="quitar" onClick={() => setArchivoAdj(null)} aria-label="Quitar archivo">×</button>
+                        <button type="button" className="quitar" onClick={() => setArchivoAdj(null)} aria-label="Quitar archivo"><IconoX small /></button>
                       </div>
                     )}
                     <div className="s24-composer">
                       <label className="s24-attach" data-disabled={String(!puedeEscribir)}>
-                        📎
+                        <IconoClip />
                         <input
                           type="file"
                           hidden
@@ -608,8 +613,8 @@ export default function InboxPage() {
                         onKeyDown={(e) => e.key === 'Enter' && enviar()}
                       />
                       {texto.trim() || archivoAdj ? (
-                        <button className="s24-btn primary" onClick={enviar} disabled={!puedeEscribir || enviando}>
-                          Enviar
+                        <button className="s24-btn primary round" onClick={enviar} disabled={!puedeEscribir || enviando} title="Enviar">
+                          <IconoEnviar />
                         </button>
                       ) : (
                         <button
@@ -619,7 +624,7 @@ export default function InboxPage() {
                           disabled={!puedeEscribir}
                           onClick={iniciarGrabacion}
                         >
-                          🎤
+                          <IconoMic />
                         </button>
                       )}
                     </div>
@@ -648,6 +653,56 @@ export default function InboxPage() {
         </section>
       </div>
     </div>
+  )
+}
+
+// Íconos de línea (mismo criterio que Huellas de Paz) en vez de emoji — el render de
+// emoji varía muchísimo entre sistemas operativos/fuentes y queda inconsistente con el
+// resto del diseño.
+function IconoClip() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  )
+}
+
+function IconoMic() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  )
+}
+
+function IconoEnviar() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  )
+}
+
+function IconoX({ small }: { small?: boolean }) {
+  const s = small ? 12 : 14
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  )
+}
+
+function IconoCandado() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
   )
 }
 

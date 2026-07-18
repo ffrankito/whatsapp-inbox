@@ -488,9 +488,12 @@ responder hasta que la libere. Mismo patrón que ya usa Huellas de Paz
 (`asignadaAId` + acción "tomar"), replicado acá.
 
 **Estados:** `sin_asignar` → `asignada` (con `asignadaA: {id, nombre}`) → `cerrada`.
-Cualquiera puede tomar una conversación sin asignar; una vez asignada, todas las rutas
-que modifican algo (`responder`, `notas`, `adjunto`) verifican que quien pide sea el
-agente dueño — si no, devuelven `423 Locked`. Tomarla cuando ya está asignada a otro
+Cualquiera puede tomar una conversación sin asignar, pero **hay que tomarla primero para
+poder responder** — no alcanza con que esté libre (bug corregido: la primera versión
+dejaba responder a cualquiera mientras nadie más la hubiera tomado, sin exigir el paso
+de "Tomar"). Todas las rutas que modifican algo (`responder`, `notas`, `adjunto`)
+verifican que quien pide sea el agente dueño Y que el estado sea `asignada` — si no,
+devuelven `423 Locked`. Tomarla cuando ya está asignada a otro
 devuelve `409 Conflict`.
 
 **El problema real que había que resolver: ¿quién es "el agente"?** Todavía no hay

@@ -79,9 +79,10 @@ export function agregarNotaDemo(contactId: string, body: string) {
 
 // ── Asignación / bloqueo entre agentes (misma API que lib/standalone/store) ─
 
+// Hay que TOMAR la conversación antes de poder responder — no alcanza con que esté
+// libre (ver el mismo comentario en src/lib/standalone/store.ts).
 export function puedeEscribirDemo(conv: DemoConversacion, agenteId: string): boolean {
-  if (conv.estado === 'cerrada') return false
-  if (conv.estado === 'sin_asignar') return true
+  if (conv.estado !== 'asignada') return false
   return conv.asignadaA?.id === agenteId
 }
 
