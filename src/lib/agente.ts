@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { sesionActual } from '@/lib/auth'
 import type { Agente } from '@/lib/standalone/store'
+import { registrarAgente } from '@/lib/agentesConocidos'
 
 /**
  * Identidad del agente que hace el pedido.
@@ -15,12 +16,18 @@ import type { Agente } from '@/lib/standalone/store'
 export async function agenteActual(request: NextRequest): Promise<Agente | null> {
   const sesion = await sesionActual()
   if (sesion?.userId) {
-    return { id: sesion.userId, nombre: sesion.userName || sesion.email || 'Agente' }
+    const agente = { id: sesion.userId, nombre: sesion.userName || sesion.email || 'Agente' }
+    registrarAgente(agente)
+    return agente
   }
 
   const id = request.headers.get('x-s24-agente-id')
   const nombre = request.headers.get('x-s24-agente-nombre')
-  if (id && nombre) return { id, nombre }
+  if (id && nombre) {
+    const agente = { id, nombre }
+    registrarAgente(agente)
+    return agente
+  }
 
   return null
 }

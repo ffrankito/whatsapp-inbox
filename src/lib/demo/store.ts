@@ -109,3 +109,15 @@ export function cerrarConversacionDemo(id: string) {
   if (!conv) return
   conv.estado = 'cerrada'
 }
+
+export type ResultadoTraspaso = { ok: true } | { ok: false; motivo: 'no_existe' | 'no_sos_dueño' }
+
+export function traspasarConversacionDemo(id: string, deAgenteId: string, destino: Agente): ResultadoTraspaso {
+  const conv = encontrarConversacion(id)
+  if (!conv) return { ok: false, motivo: 'no_existe' }
+  if (conv.estado !== 'asignada' || conv.asignadaA?.id !== deAgenteId) {
+    return { ok: false, motivo: 'no_sos_dueño' }
+  }
+  conv.asignadaA = destino
+  return { ok: true }
+}

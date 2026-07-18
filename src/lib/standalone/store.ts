@@ -148,3 +148,18 @@ export function cerrarConversacion(id: string) {
   if (!conv) return
   conv.estado = 'cerrada'
 }
+
+export type ResultadoTraspaso = { ok: true } | { ok: false; motivo: 'no_existe' | 'no_sos_dueño' }
+
+// El dueño actual le pasa la conversación directo a otro agente (queda 'asignada' todo
+// el tiempo, sin pasar por 'sin_asignar' en el medio) — a diferencia de liberar, nadie
+// más puede agarrarla de pasada durante el traspaso.
+export function traspasarConversacion(id: string, deAgenteId: string, destino: Agente): ResultadoTraspaso {
+  const conv = conversaciones.get(id)
+  if (!conv) return { ok: false, motivo: 'no_existe' }
+  if (conv.estado !== 'asignada' || conv.asignadaA?.id !== deAgenteId) {
+    return { ok: false, motivo: 'no_sos_dueño' }
+  }
+  conv.asignadaA = destino
+  return { ok: true }
+}

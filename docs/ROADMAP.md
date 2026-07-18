@@ -39,6 +39,10 @@ Objetivo: validar el diseño/UX con algo clickeable, antes de conectar nada real
       con Huellas de Paz — ver ARCHITECTURE.md §17.
 - [x] Asignación/bloqueo entre agentes: tomar/liberar/cerrar una conversación bloquea a
       los demás agentes de responder mientras está tomada — ver ARCHITECTURE.md §18.
+      Corregido: hacía falta tomarla explícitamente antes de poder responder, no
+      alcanzaba con que estuviera libre.
+- [x] Traspasar una conversación directo a otro agente conocido, sin pasar por
+      "sin_asignar" en el medio — ver ARCHITECTURE.md §20.
 - [x] Paridad con Huellas de Paz (segunda ronda de feedback): adjuntar un archivo con
       texto (caption) en un solo mensaje como WhatsApp real, tildes de enviado/
       entregado/leído, indicador de "escribiendo…" hacia el cliente, grabar y mandar

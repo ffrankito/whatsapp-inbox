@@ -192,6 +192,8 @@
 }
 .s24-btn.primary:hover { filter: brightness(1.06); }
 .s24-btn:disabled { opacity: 0.5; cursor: default; }
+.s24-traspasar { appearance: none; font: inherit; }
+.s24-traspasar:hover { background: var(--surface-soft); }
 .s24-btn.primary.round {
   width: 40px; height: 40px; padding: 0; border-radius: 50%; flex: none;
   display: flex; align-items: center; justify-content: center;

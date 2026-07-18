@@ -71,6 +71,7 @@ export default function InboxPage() {
   const [archivoAdj, setArchivoAdj] = useState<File | null>(null)
   const [nota, setNota] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [agentesConocidos, setAgentesConocidos] = useState<Agente[]>([])
   const ultimoTypingRef = useRef(0)
 
   // ── Grabar y mandar audio (paridad con Huellas de Paz) ───────────────────
@@ -172,6 +173,20 @@ export default function InboxPage() {
     }
   }, [])
 
+  // Agentes conocidos (para el selector de "Traspasar a…") — llamar a esta ruta también
+  // nos registra a nosotros mismos como destino posible para los demás (ver ARCHITECTURE.md §20).
+  const cargarAgentes = useCallback(async () => {
+    try {
+      const res = await fetch('/api/agentes', { headers: headersConAgente() })
+      if (!res.ok) return
+      const data = await res.json()
+      setAgentesConocidos(data.agentes ?? [])
+    } catch {
+      // silencioso: el próximo poll reintenta
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agente])
+
   const cargarMensajes = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/conversaciones/${id}`)
@@ -191,6 +206,14 @@ export default function InboxPage() {
     const interval = setInterval(cargarConversaciones, POLL_RESPALDO_MS)
     return () => clearInterval(interval)
   }, [ssoListo, numeroActivo, cargarConversaciones])
+
+  // ── Agentes conocidos: carga inicial + poll de respaldo lento ────────────
+  useEffect(() => {
+    if (!ssoListo) return
+    cargarAgentes()
+    const interval = setInterval(cargarAgentes, POLL_RESPALDO_MS)
+    return () => clearInterval(interval)
+  }, [ssoListo, cargarAgentes])
 
   // ── Hilo de la conversación seleccionada: carga inicial + poll de respaldo ─
   useEffect(() => {
@@ -408,6 +431,16 @@ export default function InboxPage() {
     await refrescarTodo()
   }
 
+  async function traspasar(destino: Agente) {
+    if (!seleccionada) return
+    await fetch(`/api/conversaciones/${seleccionada.id}/traspasar`, {
+      method: 'POST',
+      headers: headersConAgente({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ agenteId: destino.id, agenteNombre: destino.nombre }),
+    })
+    await refrescarTodo()
+  }
+
   // ── Gate: pedir nombre antes de mostrar el inbox (identidad para el bloqueo) ─
   if (!agente) {
     return (
@@ -519,6 +552,21 @@ export default function InboxPage() {
                   )}
                   {esMia && seleccionada.estado === 'asignada' && (
                     <>
+                      {agentesConocidos.filter((a) => a.id !== agente.id).length > 0 && (
+                        <select
+                          className="s24-btn s24-traspasar"
+                          value=""
+                          onChange={(e) => {
+                            const destino = agentesConocidos.find((a) => a.id === e.target.value)
+                            if (destino) traspasar(destino)
+                          }}
+                        >
+                          <option value="" disabled>Traspasar a…</option>
+                          {agentesConocidos.filter((a) => a.id !== agente.id).map((a) => (
+                            <option key={a.id} value={a.id}>{a.nombre}</option>
+                          ))}
+                        </select>
+                      )}
                       <button className="s24-btn" onClick={liberar}>Liberar</button>
                       <button className="s24-btn" onClick={cerrar}>Cerrar</button>
                     </>

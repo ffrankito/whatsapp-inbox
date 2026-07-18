@@ -616,3 +616,34 @@ forma de píldora/circulares en vez de rectangulares, y más aire/sombra en gene
 estructura de 3 columnas (números/lista/hilo) se mantiene tal cual — es una diferencia
 real y necesaria frente a Huellas de Paz (que solo tiene un número), no un descuido de
 diseño.
+
+## 20. Traspasar una conversación a otro agente
+
+Pedido explícito: además de tomar/liberar/cerrar (§18), hace falta poder pasarle
+directamente una conversación a otro agente en concreto — un traspaso real, no "liberar
+y que la agarre quien pase primero".
+
+**El problema a resolver:** para traspasarle una conversación a "Marcos", hace falta el
+`id` que el navegador/localStorage de Marcos genera y manda en sus propios pedidos
+(`x-s24-agente-id`) — no alcanza con escribir su nombre a mano, porque si el id no
+coincide con el que su sesión realmente usa, después Marcos no puede responder (la
+verificación de dueño es por id, no por nombre). Como todavía no hay un directorio de
+usuarios real (eso lo va a dar GHL en la Fase 6), se arma uno mínimo en memoria:
+
+- `src/lib/agentesConocidos.ts` — un `Map` en memoria de agentes que ya se
+  identificaron alguna vez. `src/lib/agente.ts` (`agenteActual`) registra ahí a
+  cualquiera que pase por una ruta con sus headers de identidad.
+- `GET /api/agentes` devuelve la lista — y de paso, llamarla registra a quien la llama
+  (así con solo tener el inbox abierto ya aparecés como destino posible para los demás,
+  sin tener que haber tomado nada todavía). El frontend la pollea cada 45s
+  (`POLL_RESPALDO_MS`, mismo intervalo que conversaciones/mensajes).
+- `POST /api/conversaciones/[id]/traspasar` — solo lo puede hacer el dueño actual
+  (mismo chequeo de `puedeEscribir`/`asignadaA.id` que el resto de las rutas). A
+  diferencia de "liberar", la conversación queda `asignada` todo el tiempo, nunca pasa
+  por `sin_asignar` — nadie más puede agarrarla de pasada en el medio del traspaso.
+- En el hilo, el selector "Traspasar a…" solo aparece si hay algún otro agente conocido
+  además de uno mismo — si sos el único que usó el inbox hasta ahora, no tiene sentido
+  mostrarlo.
+
+Mismo criterio que el resto de §18: esto es lo mínimo para poder probar el traspaso hoy,
+no reemplaza el directorio de usuarios real que va a dar GHL.
