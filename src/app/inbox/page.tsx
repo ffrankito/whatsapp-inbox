@@ -75,6 +75,7 @@ export default function InboxPage() {
   const [nota, setNota] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [agentesConocidos, setAgentesConocidos] = useState<Agente[]>([])
+  const [filtroAgenteId, setFiltroAgenteId] = useState('')
   const ultimoTypingRef = useRef(0)
 
   // ── Grabar y mandar audio (paridad con Huellas de Paz) ───────────────────
@@ -251,6 +252,9 @@ export default function InboxPage() {
   }, [ssoListo, cargarConversaciones, cargarMensajes])
 
   const seleccionada = conversaciones.find((c) => c.id === seleccionadaId) ?? null
+  const conversacionesFiltradas = filtroAgenteId
+    ? conversaciones.filter((c) => c.asignadaA?.id === filtroAgenteId)
+    : conversaciones
   const esMia = !!seleccionada && !!agente && seleccionada.asignadaA?.id === agente.id
   // Hay que tomar la conversación antes de poder responder — no alcanza con que esté
   // libre (antes dejaba responder a cualquiera mientras nadie más la hubiera tomado).
@@ -514,10 +518,28 @@ export default function InboxPage() {
 
         <div className="s24-convlist">
           <div className="listhead">
-            {NUMEROS.find((n) => n.id === numeroActivo)?.nombre} · {conversaciones.length}
+            {NUMEROS.find((n) => n.id === numeroActivo)?.nombre} · {conversacionesFiltradas.length}
+            {filtroAgenteId && ` (de ${agentesConocidos.find((a) => a.id === filtroAgenteId)?.nombre ?? '…'})`}
           </div>
-          {conversaciones.length === 0 && <div className="empty">Sin conversaciones todavía.</div>}
-          {conversaciones.map((c) => (
+          {agentesConocidos.length > 0 && (
+            <select
+              className="s24-agente-filtro"
+              value={filtroAgenteId}
+              onChange={(e) => setFiltroAgenteId(e.target.value)}
+              title="Ver solo las conversaciones tomadas por un agente"
+            >
+              <option value="">Todos los agentes</option>
+              {agentesConocidos.map((a) => (
+                <option key={a.id} value={a.id}>{a.nombre}{a.id === agente.id ? ' (vos)' : ''}</option>
+              ))}
+            </select>
+          )}
+          {conversacionesFiltradas.length === 0 && (
+            <div className="empty">
+              {filtroAgenteId ? 'Ese agente no tiene conversaciones tomadas en este número.' : 'Sin conversaciones todavía.'}
+            </div>
+          )}
+          {conversacionesFiltradas.map((c) => (
             <button
               key={c.id}
               className="s24-conv-item"

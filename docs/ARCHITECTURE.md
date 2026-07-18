@@ -671,3 +671,20 @@ burbujas, botón enviar) hereda el color en cascada sin que cada regla tenga que
 qué número es. Las 3 pastillas de estado del header, en cambio, llevan cada una su
 propio `data-numero` fijo (no el del número activo) para mostrar los 3 colores a la vez,
 todo el tiempo, aunque estés parado en otro número.
+
+## 22. Filtro por agente ("¿qué tiene tomado Fulano?")
+
+Pedido explícito: un selector para ver de un vistazo qué conversaciones tiene tomadas un
+agente en particular — va arriba de la lista de conversaciones (no en la barra superior
+global, primer lugar donde se probó — feedback directo: "arriba de los chats"). Reutiliza
+el mismo directorio de agentes conocidos que ya existía para el traspaso (§20,
+`GET /api/agentes`) — nada nuevo que mantener ahí.
+
+Es un filtro **puramente del lado del cliente**, sobre las conversaciones ya cargadas
+del número activo (`src/app/inbox/page.tsx`, `conversacionesFiltradas`): compara
+`c.asignadaA?.id` contra el agente elegido. Queda con alcance por número a propósito —
+no agrega un fetch nuevo cruzando los 3 números a la vez, así que para ver lo que un
+agente tiene tomado en Dealers y en Abonados hay que mirar cada número por separado
+cambiando de pestaña (el filtro se mantiene aplicado al cambiar de número). Si el
+volumen de conversaciones creciera mucho y esto se sintiera limitado, ahí sí valdría la
+pena un endpoint agregado del lado del servidor — no hace falta todavía.
