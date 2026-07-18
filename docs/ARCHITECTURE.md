@@ -647,3 +647,27 @@ usuarios real (eso lo va a dar GHL en la Fase 6), se arma uno mínimo en memoria
 
 Mismo criterio que el resto de §18: esto es lo mínimo para poder probar el traspaso hoy,
 no reemplaza el directorio de usuarios real que va a dar GHL.
+
+## 21. Identidad visual propia por número ("skins")
+
+Feedback explícito: la pantalla se sentía genérica, como cualquier inbox — y Dealers /
+Abonados / App Full Control no son 3 filtros de un mismo canal, son 3 líneas de negocio
+distintas. Se le dio a cada número su propio color + ícono
+(`src/app/inbox/page.tsx`, array `NUMEROS`), y ese color se propaga a todo lo que se ve
+mientras estás parado en ese número: la fila activa en el nav, la conversación
+seleccionada, las burbujas salientes, el botón de enviar y los avatares.
+
+- Dealers → ámbar (`#c9852e`), ícono de maletín.
+- Abonados → teal (`#14a79e`, el color de marca por defecto), ícono de escudo (coherente
+  con que Security24 es una empresa de monitoreo).
+- App Full Control → violeta (`#6d63c9`), ícono de celular.
+
+**Cómo se implementó (sin duplicar CSS por color):** una sola custom property CSS,
+`--numero-accent` (+ variantes `-dim`/`-tint`), definida en `.s24-inbox` con el teal como
+default. Cualquier elemento marcado con `data-numero="dealers|abonados|fullcontrol"`
+pisa esa variable con el color de ese número — el panel entero (`.s24-console`) lleva el
+atributo seteado al número activo, así que todo lo que hay adentro (lista, hilo,
+burbujas, botón enviar) hereda el color en cascada sin que cada regla tenga que saber
+qué número es. Las 3 pastillas de estado del header, en cambio, llevan cada una su
+propio `data-numero` fijo (no el del número activo) para mostrar los 3 colores a la vez,
+todo el tiempo, aunque estés parado en otro número.

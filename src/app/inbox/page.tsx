@@ -9,10 +9,13 @@ import './inbox.css'
 
 type NumeroId = 'dealers' | 'abonados' | 'fullcontrol'
 
-const NUMEROS: { id: NumeroId; nombre: string }[] = [
-  { id: 'dealers', nombre: 'Dealers' },
-  { id: 'abonados', nombre: 'Abonados' },
-  { id: 'fullcontrol', nombre: 'App Full Control' },
+// Cada número tiene su propia identidad visual (color + ícono) — son 3 líneas de
+// negocio distintas (dealers/abonados/app), no una lista de filtros genérica, así que
+// cambiar de número tiene que sentirse como cambiar de área.
+const NUMEROS: { id: NumeroId; nombre: string; Icono: () => React.JSX.Element }[] = [
+  { id: 'dealers', nombre: 'Dealers', Icono: IconoDealers },
+  { id: 'abonados', nombre: 'Abonados', Icono: IconoAbonados },
+  { id: 'fullcontrol', nombre: 'App Full Control', Icono: IconoApp },
 ]
 
 type Agente = { id: string; nombre: string }
@@ -479,7 +482,7 @@ export default function InboxPage() {
         </div>
         <div className="s24-channel-status">
           {NUMEROS.map((n) => (
-            <span key={n.id} className="s24-status-pill">
+            <span key={n.id} className="s24-status-pill" data-numero={n.id}>
               <span className="led" />
               {n.nombre}
             </span>
@@ -487,13 +490,14 @@ export default function InboxPage() {
         </div>
       </div>
 
-      <div className="s24-console">
+      <div className="s24-console" data-numero={numeroActivo}>
         <nav className="s24-numbers">
           <div className="eyebrow">Números</div>
           {NUMEROS.map((n) => (
             <button
               key={n.id}
               className="s24-num-btn"
+              data-numero={n.id}
               data-active={String(n.id === numeroActivo)}
               onClick={() => {
                 setNumeroActivo(n.id)
@@ -501,6 +505,7 @@ export default function InboxPage() {
               }}
             >
               <span className="row1">
+                <span className="s24-num-ico"><n.Icono /></span>
                 <span className="name">{n.nombre}</span>
               </span>
             </button>
@@ -750,6 +755,33 @@ function IconoCandado() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="11" width="18" height="11" rx="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  )
+}
+
+// Un ícono por número — refuerza que son 3 áreas distintas, no un mismo canal filtrado.
+function IconoDealers() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="20" height="14" rx="2" />
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+    </svg>
+  )
+}
+
+function IconoAbonados() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l8 3.5v5.2c0 5-3.4 8.9-8 10.3-4.6-1.4-8-5.3-8-10.3V5.5L12 2z" />
+    </svg>
+  )
+}
+
+function IconoApp() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="6" y="2" width="12" height="20" rx="2" />
+      <line x1="10" y1="19" x2="14" y2="19" />
     </svg>
   )
 }
