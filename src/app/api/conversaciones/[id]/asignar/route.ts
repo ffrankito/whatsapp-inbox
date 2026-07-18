@@ -22,7 +22,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (DEMO_MODE) {
     const resultado = asignarConversacionDemo(id, agente)
     if (!resultado.ok) {
-      return NextResponse.json({ error: 'Ya asignada', asignadaA: 'asignadaA' in resultado ? resultado.asignadaA : undefined }, { status: 409 })
+      const error = resultado.motivo === 'cerrada' ? 'Esta conversación está cerrada' : 'Ya asignada'
+      return NextResponse.json({ error, asignadaA: 'asignadaA' in resultado ? resultado.asignadaA : undefined }, { status: 409 })
     }
     return NextResponse.json({ ok: true, asignadaA: agente })
   }
@@ -30,7 +31,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (STANDALONE_MODE) {
     const resultado = asignarConversacion(id, agente)
     if (!resultado.ok) {
-      return NextResponse.json({ error: 'Ya asignada', asignadaA: 'asignadaA' in resultado ? resultado.asignadaA : undefined }, { status: 409 })
+      const error = resultado.motivo === 'cerrada' ? 'Esta conversación está cerrada' : 'Ya asignada'
+      return NextResponse.json({ error, asignadaA: 'asignadaA' in resultado ? resultado.asignadaA : undefined }, { status: 409 })
     }
     return NextResponse.json({ ok: true, asignadaA: agente })
   }

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { DEMO_MODE, STANDALONE_MODE } from '@/lib/mode'
 import { pedidoConfiable } from '@/lib/csrf'
+import { agenteActual } from '@/lib/agente'
 import { liberarConversacionDemo } from '@/lib/demo/store'
 import { liberarConversacion } from '@/lib/standalone/store'
 
 // Devuelve la conversación al pool sin asignar — cualquier agente puede tomarla de nuevo.
+// Solo el dueño actual puede hacerlo (si no, cualquiera podría sacarle a otro agente una
+// conversación tomada sin su consentimiento — bug corregido, ver ARCHITECTURE.md §23).
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
@@ -12,10 +15,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Origen no confiable' }, { status: 403 })
   }
 
+  const agente = await agenteActual(request)
+  if (!agente) {
+    return NextResponse.json({ error: 'No se pudo identificar al agente' }, { status: 401 })
+  }
+
   if (DEMO_MODE) {
-    liberarConversacionDemo(id)
+    const ok = liberarConversacionDemo(id, agente.id)
+    if (!ok) return NextResponse.json({ error: 'No sos el dueño de esta conversación' }, { status: 423 })
   } else if (STANDALONE_MODE) {
-    liberarConversacion(id)
+    const ok = liberarConversacion(id, agente.id)
+    if (!ok) return NextResponse.json({ error: 'No sos el dueño de esta conversación' }, { status: 423 })
   }
 
   return NextResponse.json({ ok: true })

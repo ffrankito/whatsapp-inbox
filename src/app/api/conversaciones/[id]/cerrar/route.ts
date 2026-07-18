@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { DEMO_MODE, STANDALONE_MODE } from '@/lib/mode'
 import { pedidoConfiable } from '@/lib/csrf'
+import { agenteActual } from '@/lib/agente'
 import { cerrarConversacionDemo } from '@/lib/demo/store'
 import { cerrarConversacion } from '@/lib/standalone/store'
 
+// Solo el dueño actual puede cerrarla — bug corregido, ver ARCHITECTURE.md §23.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
@@ -11,10 +13,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Origen no confiable' }, { status: 403 })
   }
 
+  const agente = await agenteActual(request)
+  if (!agente) {
+    return NextResponse.json({ error: 'No se pudo identificar al agente' }, { status: 401 })
+  }
+
   if (DEMO_MODE) {
-    cerrarConversacionDemo(id)
+    const ok = cerrarConversacionDemo(id, agente.id)
+    if (!ok) return NextResponse.json({ error: 'No sos el dueño de esta conversación' }, { status: 423 })
   } else if (STANDALONE_MODE) {
-    cerrarConversacion(id)
+    const ok = cerrarConversacion(id, agente.id)
+    if (!ok) return NextResponse.json({ error: 'No sos el dueño de esta conversación' }, { status: 423 })
   }
 
   return NextResponse.json({ ok: true })

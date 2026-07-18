@@ -115,7 +115,7 @@ export function ultimoMensajeEntranteWaId(conv: StandaloneConversacion): string 
 // Mientras una conversación está "asignada", solo el agente dueño puede responder o
 // agregar notas — el resto de la UI (y las rutas) lo bloquean (ver ARCHITECTURE.md).
 
-export type ResultadoAsignacion = { ok: true } | { ok: false; motivo: 'no_existe' | 'ya_asignada'; asignadaA?: Agente }
+export type ResultadoAsignacion = { ok: true } | { ok: false; motivo: 'no_existe' | 'ya_asignada' | 'cerrada'; asignadaA?: Agente }
 
 // Hay que TOMAR la conversación antes de poder responder — no alcanza con que esté
 // libre. Antes esto dejaba responder a cualquiera mientras nadie más la hubiera tomado,
@@ -128,6 +128,7 @@ export function puedeEscribir(conv: StandaloneConversacion, agenteId: string): b
 export function asignarConversacion(id: string, agente: Agente): ResultadoAsignacion {
   const conv = conversaciones.get(id)
   if (!conv) return { ok: false, motivo: 'no_existe' }
+  if (conv.estado === 'cerrada') return { ok: false, motivo: 'cerrada' }
   if (conv.estado === 'asignada' && conv.asignadaA?.id !== agente.id) {
     return { ok: false, motivo: 'ya_asignada', asignadaA: conv.asignadaA }
   }
@@ -136,17 +137,22 @@ export function asignarConversacion(id: string, agente: Agente): ResultadoAsigna
   return { ok: true }
 }
 
-export function liberarConversacion(id: string) {
+// Solo el dueño actual puede liberar/cerrar — antes esto lo podía hacer cualquiera (sin
+// chequear agenteId), lo que rompía por completo la garantía de bloqueo (§18): cualquiera
+// podía sacarle a otro agente una conversación tomada, o cerrarla, sin su consentimiento.
+export function liberarConversacion(id: string, agenteId: string): boolean {
   const conv = conversaciones.get(id)
-  if (!conv) return
+  if (!conv || conv.estado !== 'asignada' || conv.asignadaA?.id !== agenteId) return false
   conv.estado = 'sin_asignar'
   conv.asignadaA = undefined
+  return true
 }
 
-export function cerrarConversacion(id: string) {
+export function cerrarConversacion(id: string, agenteId: string): boolean {
   const conv = conversaciones.get(id)
-  if (!conv) return
+  if (!conv || conv.estado !== 'asignada' || conv.asignadaA?.id !== agenteId) return false
   conv.estado = 'cerrada'
+  return true
 }
 
 export type ResultadoTraspaso = { ok: true } | { ok: false; motivo: 'no_existe' | 'no_sos_dueño' }

@@ -688,3 +688,61 @@ agente tiene tomado en Dealers y en Abonados hay que mirar cada número por sepa
 cambiando de pestaña (el filtro se mantiene aplicado al cambiar de número). Si el
 volumen de conversaciones creciera mucho y esto se sintiera limitado, ahí sí valdría la
 pena un endpoint agregado del lado del servidor — no hace falta todavía.
+
+## 23. Auditoría — bug encontrado y corregido: el bloqueo no era real del lado del servidor
+
+Pedido explícito: una auditoría completa del proyecto. El hallazgo más importante:
+**`liberar` y `cerrar` no verificaban quién los pedía.** Se agregaron junto con el resto
+del bloqueo entre agentes (§18), pero a diferencia de `responder`/`notas`/`adjunto`/
+`asignar`/`traspasar`, nunca llamaban a `agenteActual()` ni chequeaban dueño — cualquiera
+con acceso a la API (no hacía falta ser el dueño, ni siquiera estar en la UI) podía
+liberar o cerrar la conversación de cualquier otro agente. Confirmado en vivo con curl
+antes de corregirlo: un "atacante" sin ninguna relación con la conversación la liberó y
+la cerró sin problema. Esto rompía por completo la garantía central del proyecto ("cuando
+un agente toma un chat se debe bloquear ese chat").
+
+**Corregido** (`src/lib/standalone/store.ts`, `src/lib/demo/store.ts`,
+`.../liberar/route.ts`, `.../cerrar/route.ts`): ambas funciones ahora piden `agenteId` y
+verifican que la conversación esté `asignada` a ese mismo agente antes de tocar nada —
+si no, `423`. Se re-verificó en vivo: el mismo ataque ahora falla, y el dueño real sigue
+pudiendo liberar/cerrar sin problema.
+
+**Segundo hallazgo relacionado:** `asignar` ("Tomar") no rechazaba conversaciones
+`cerrada` — se le podía pasar por encima al cierre re-tomando la conversación por API
+directa (la UI nunca ofrece el botón "Tomar" en una cerrada, pero el backend no lo
+impedía). Corregido: `asignarConversacion`/`asignarConversacionDemo` ahora devuelven
+`{ok: false, motivo: 'cerrada'}` si se intenta.
+
+**Tercer hallazgo, menor:** `/api/conversaciones/[id]/typing` tampoco verificaba dueño —
+cualquiera podía hacerle llegar un "escribiendo…" (y de paso, marcar como leído el último
+mensaje) a un cliente de una conversación que ni tenía tomada. Impacto bajo (no expone ni
+corrompe datos, solo un efecto molesto/confuso hacia el cliente), pero corregido por
+consistencia con el resto de las rutas.
+
+**Otros hallazgos de la auditoría, sin corregir por ahora (severidad baja, ya documentados
+o aceptados a propósito para esta etapa):**
+- Las rutas internas que modifican algo (`responder`, `notas`, `adjunto`, `asignar`,
+  `liberar`, `cerrar`, `traspasar`, `typing`) no tienen rate limiting — solo los 2
+  webhooks externos (`kapso/webhook`, `ghl/outbound`) lo tienen. Como la identidad de
+  agente en Fases 1–2 es auto-declarada por header (no hay login real, ver §18), esto
+  significa que cualquiera con acceso de red al servidor puede actuar como cualquier
+  agente sin límite de ritmo. Es un riesgo aceptado **mientras el despliegue sea interno/
+  VPN** (así está pensada la Fase 1 en el roadmap) — pero es importante no exponer esto a
+  internet público antes de que la Fase 6 traiga autenticación real vía GHL.
+- `POST /api/conversaciones/[id]/adjunto` lee el archivo completo a memoria
+  (`request.formData()`) antes de chequear el límite de 8MB — no hay un límite de tamaño
+  de body a nivel de servidor, así que alguien podría mandar un body mucho más grande y
+  hacer que el proceso lo bufferee igual antes de rechazarlo. Se puede mitigar en la
+  Fase 3 configurando un límite de tamaño de body en el reverse proxy — no urgente para
+  un despliegue interno.
+- `npx eslint` marca 4 errores de las reglas nuevas de React Compiler
+  (`react-hooks/set-state-in-effect`, `react-hooks/purity`) en `src/app/inbox/page.tsx` —
+  revisados, son patrones estándar (leer localStorage al montar, resetear estado al
+  cambiar de conversación) mal clasificados por una regla nueva y estricta, no bugs
+  reales. `next build` no corre `eslint` por default en esta versión, así que esto no
+  bloquea nada — pero tampoco hay nada hoy que lo bloquee en un CI si se agrega uno más
+  adelante, vale la pena revisarlo entonces.
+- `npm audit`: mismas 6 vulnerabilidades moderadas ya revisadas en §15 (esbuild/postcss,
+  herramientas de build/dev, sin exploit posible acá) — sin cambios.
+- No se encontraron secretos commiteados: solo `.env.example` está trackeado en git, y
+  sus valores están todos vacíos.

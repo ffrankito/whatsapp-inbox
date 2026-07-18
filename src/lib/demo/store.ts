@@ -89,6 +89,7 @@ export function puedeEscribirDemo(conv: DemoConversacion, agenteId: string): boo
 export function asignarConversacionDemo(id: string, agente: Agente): ResultadoAsignacion {
   const conv = encontrarConversacion(id)
   if (!conv) return { ok: false, motivo: 'no_existe' }
+  if (conv.estado === 'cerrada') return { ok: false, motivo: 'cerrada' }
   if (conv.estado === 'asignada' && conv.asignadaA?.id !== agente.id) {
     return { ok: false, motivo: 'ya_asignada', asignadaA: conv.asignadaA }
   }
@@ -97,17 +98,21 @@ export function asignarConversacionDemo(id: string, agente: Agente): ResultadoAs
   return { ok: true }
 }
 
-export function liberarConversacionDemo(id: string) {
+// Solo el dueño actual puede liberar/cerrar (mismo fix que src/lib/standalone/store.ts —
+// antes cualquiera podía sacarle a otro agente una conversación tomada, sin su consentimiento).
+export function liberarConversacionDemo(id: string, agenteId: string): boolean {
   const conv = encontrarConversacion(id)
-  if (!conv) return
+  if (!conv || conv.estado !== 'asignada' || conv.asignadaA?.id !== agenteId) return false
   conv.estado = 'sin_asignar'
   conv.asignadaA = undefined
+  return true
 }
 
-export function cerrarConversacionDemo(id: string) {
+export function cerrarConversacionDemo(id: string, agenteId: string): boolean {
   const conv = encontrarConversacion(id)
-  if (!conv) return
+  if (!conv || conv.estado !== 'asignada' || conv.asignadaA?.id !== agenteId) return false
   conv.estado = 'cerrada'
+  return true
 }
 
 export type ResultadoTraspaso = { ok: true } | { ok: false; motivo: 'no_existe' | 'no_sos_dueño' }
