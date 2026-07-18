@@ -31,6 +31,14 @@ Objetivo: validar el diseño/UX con algo clickeable, antes de conectar nada real
 - [x] `Dockerfile` multi-stage (`next.config.ts` con `output: 'standalone'`) — probado
       localmente: build OK, contenedor levanta, corre como usuario no-root (`nextjs`), y
       el modo demo respondió bien adentro del contenedor.
+- [x] Rediseño visual con el logo real de Security24 (colores marca `--navy`/`--accent`
+      en `src/app/inbox/inbox.css`), avatares, y patrones tomados del inbox de Huellas de
+      Paz y de la reference-app oficial de Kapso — reemplaza el diseño inicial que se
+      descartó por feedback directo ("es horrible").
+- [x] Soporte de adjuntos (imagen/audio/documento/video) en el hilo y al mandar, paridad
+      con Huellas de Paz — ver ARCHITECTURE.md §17.
+- [x] Asignación/bloqueo entre agentes: tomar/liberar/cerrar una conversación bloquea a
+      los demás agentes de responder mientras está tomada — ver ARCHITECTURE.md §18.
 - [ ] Publicarlo en un servidor del data center — alcanza con acceso interno/VPN por
       ahora. Ver `docker-compose.yml` (necesita un `.env.production` con las variables de
       `.env.example` completadas).
@@ -56,11 +64,13 @@ suelta (no embebida) en esta etapa.
       hacer vos, requiere acceso a Meta Business Manager de Security24.
 - [ ] Con el número real conectado: mandar un WhatsApp de verdad y confirmar que aparece
       en `/inbox`, responder desde ahí y confirmar que sale de verdad.
-- [ ] **Falta verificar contra un mensaje real**: el parser del webhook de Kapso
-      (`whatsapp_config.phone_number_id`, `message.from`, `message.text.body`) está
-      armado según su documentación y probado con un payload simulado — falta la
-      confirmación final contra un mensaje real de Kapso, puede necesitar un ajuste
-      chico de nombres de campo.
+- [x] **Parser del webhook de Kapso corregido con evidencia real** (ya no es una
+      suposición contra la doc): `src/lib/kapso/parseWebhook.ts`, confirmado contra el
+      código en producción de Huellas de Paz y el SDK/reference-app oficial de Kapso —
+      `phone_number_id` va en la raíz o en `conversation.phone_number_id`, nunca en
+      `whatsapp_config` como se había armado al principio. Ver ARCHITECTURE.md §16.
+      Sigue pendiente la confirmación final contra un mensaje real de un número
+      conectado de verdad, por si aparece algún caso no cubierto.
 
 **Punto de decisión:** solo se pasa a la Fase 3 (integración con GHL) si esto funciona
 bien.

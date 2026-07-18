@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sesionActual, locationIdDeSesion } from '@/lib/auth'
 import { crearNota } from '@/lib/ghl/client'
 import { DEMO_MODE, STANDALONE_MODE } from '@/lib/mode'
-import { agregarNotaDemo } from '@/lib/demo/store'
+import { agregarNotaDemo, obtenerConversacion as obtenerDemo, puedeEscribirDemo } from '@/lib/demo/store'
 import { pedidoConfiable } from '@/lib/csrf'
+import { agenteActual } from '@/lib/agente'
+import { obtenerConversacion as obtenerStandalone, puedeEscribir } from '@/lib/standalone/store'
 
 type Body = { contactId: string; body: string }
 
@@ -21,9 +23,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Faltan contactId o body' }, { status: 400 })
   }
 
-  if (DEMO_MODE || STANDALONE_MODE) {
-    // Todavía no hay GHL conectado — no hay dónde guardar la nota de verdad.
-    console.log(`[${STANDALONE_MODE ? 'standalone' : 'demo'}] nota para ${contactId}: ${body}`)
+  const agente = await agenteActual(request)
+
+  if (DEMO_MODE) {
+    const conv = obtenerDemo(id)
+    if (!conv) return NextResponse.json({ error: 'No existe esa conversación' }, { status: 404 })
+    if (!agente || !puedeEscribirDemo(conv, agente.id)) {
+      return NextResponse.json({ error: 'Esta conversación está asignada a otro agente' }, { status: 423 })
+    }
+    agregarNotaDemo(contactId, body)
+    return NextResponse.json({ ok: true })
+  }
+
+  if (STANDALONE_MODE) {
+    const conv = obtenerStandalone(id)
+    if (!conv) return NextResponse.json({ error: 'No existe esa conversación' }, { status: 404 })
+    if (!agente || !puedeEscribir(conv, agente.id)) {
+      return NextResponse.json({ error: 'Esta conversación está asignada a otro agente' }, { status: 423 })
+    }
+    console.log(`[standalone] nota para ${contactId}: ${body}`)
     return NextResponse.json({ ok: true })
   }
 

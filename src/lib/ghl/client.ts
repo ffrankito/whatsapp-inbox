@@ -160,7 +160,7 @@ export async function mensajesDeConversacion(locationId: string, conversationId:
 
 export async function agregarMensajeEntrante(
   locationId: string,
-  params: { contactId: string; conversationProviderId: string; message: string },
+  params: { contactId: string; conversationProviderId: string; message: string; attachments?: string[] },
 ) {
   return ghlFetch<{ conversationId: string; messageId: string }>(
     locationId,
@@ -174,6 +174,7 @@ export async function agregarMensajeEntrante(
         contactId: params.contactId,
         message: params.message,
         direction: 'inbound',
+        ...(params.attachments?.length ? { attachments: params.attachments } : {}),
       }),
     },
   )
@@ -181,7 +182,7 @@ export async function agregarMensajeEntrante(
 
 export async function enviarMensaje(
   locationId: string,
-  params: { contactId: string; conversationProviderId: string; message: string },
+  params: { contactId: string; conversationProviderId: string; message: string; attachments?: string[] },
 ) {
   return ghlFetch<{ conversationId: string; messageId: string; status: string }>(
     locationId,
@@ -194,6 +195,7 @@ export async function enviarMensaje(
         conversationProviderId: params.conversationProviderId,
         contactId: params.contactId,
         message: params.message,
+        ...(params.attachments?.length ? { attachments: params.attachments } : {}),
       }),
     },
   )

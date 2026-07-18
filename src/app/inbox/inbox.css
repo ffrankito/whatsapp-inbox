@@ -7,9 +7,14 @@
   --text-dim: #726e64;
   --text-faint: #a19c8e;
 
-  --accent: #2f9e85;
-  --accent-dim: #257e6b;
-  --accent-tint: #e4f3ef;
+  /* Marca Security24: teal + navy del logo (escudo) */
+  --navy: #182a4d;
+  --navy-ink: #ffffff;
+  --navy-ink-dim: #aab6cc;
+
+  --accent: #14a79e;
+  --accent-dim: #0f8880;
+  --accent-tint: #e0f5f3;
   --accent-ink: #ffffff;
 
   --good: #3fa66e;
@@ -40,10 +45,13 @@
     --text: #f3efe7;
     --text-dim: #beb6a6;
     --text-faint: #8b8375;
-    --accent: #4cbfa2;
-    --accent-dim: #6fd0b8;
-    --accent-tint: #24413a;
-    --accent-ink: #17251f;
+    --navy: #0f1c37;
+    --navy-ink: #f3efe7;
+    --navy-ink-dim: #93a2c0;
+    --accent: #2bc0b4;
+    --accent-dim: #55d2c7;
+    --accent-tint: #17332f;
+    --accent-ink: #0c211e;
     --good: #56c286;
     --good-tint: #1f3a2b;
     --warn: #e2b158;
@@ -62,20 +70,20 @@
 .s24-app-top {
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 22px; gap: 16px; flex-wrap: wrap;
-  border-bottom: 1px solid var(--border);
+  background: var(--navy); color: var(--navy-ink);
 }
 .s24-title { display: flex; align-items: center; gap: 12px; }
 .s24-title .mark {
   width: 36px; height: 36px; border-radius: 11px;
-  background: var(--accent-tint); color: var(--accent-dim);
+  background: var(--accent); color: var(--accent-ink);
   display: flex; align-items: center; justify-content: center; font-size: 18px;
 }
-.s24-title h1 { font-size: 16px; margin: 0; font-weight: 700; }
-.s24-title .sub { font-size: 12px; color: var(--text-faint); margin-top: 1px; }
+.s24-title h1 { font-size: 16px; margin: 0; font-weight: 700; color: var(--navy-ink); }
+.s24-title .sub { font-size: 12px; color: var(--navy-ink-dim); margin-top: 1px; }
 
 .s24-channel-status { display: flex; gap: 10px; flex-wrap: wrap; }
-.s24-status-pill { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
-.s24-status-pill .led { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+.s24-status-pill { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--navy-ink-dim); }
+.s24-status-pill .led { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
 
 .s24-console {
   flex: 1; display: grid; grid-template-columns: 216px 272px 1fr; min-height: 0;
@@ -167,6 +175,73 @@
   width: 100%; font: inherit; padding: 9px 11px; border-radius: 10px;
   border: 1px solid var(--border); background: var(--surface); color: var(--text); resize: vertical; min-height: 46px;
 }
+
+/* ── Identidad del agente (gate inicial) ─────────────────────────────────── */
+.s24-agente-gate {
+  flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.s24-agente-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+  box-shadow: var(--shadow-md); padding: 32px; max-width: 320px; width: 100%;
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
+}
+.s24-agente-card .mark {
+  width: 44px; height: 44px; border-radius: 13px; background: var(--accent); color: var(--accent-ink);
+  display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 4px;
+}
+.s24-agente-card h1 { font-size: 17px; margin: 0; }
+.s24-agente-card p { font-size: 12.5px; color: var(--text-dim); margin: 0 0 8px; }
+.s24-agente-card input {
+  width: 100%; font: inherit; padding: 10px 14px; border-radius: 11px;
+  border: 1px solid var(--border); background: var(--surface-soft); color: var(--text); text-align: center;
+}
+.s24-agente-card .s24-btn { width: 100%; text-align: center; padding: 10px 14px; margin-top: 4px; }
+
+/* ── Avatares ─────────────────────────────────────────────────────────────── */
+.s24-avatar {
+  flex: none; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-tint); color: var(--accent-dim);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+}
+.s24-avatar.lg { width: 38px; height: 38px; font-size: 13px; }
+
+/* ── Chips de estado (asignada / cerrada) ────────────────────────────────── */
+.s24-chip.lock { background: var(--accent-tint); color: var(--accent-dim); }
+.s24-chip.closed { background: var(--surface-soft); color: var(--text-faint); border: 1px solid var(--border); }
+
+.s24-lock-banner {
+  padding: 10px 18px; font-size: 12.5px; color: var(--text-dim);
+  background: var(--warn-tint); border-bottom: 1px solid var(--border);
+}
+.s24-lock-banner b { color: var(--text); }
+
+/* ── Cabecera del hilo (avatar + acciones de asignación) ─────────────────── */
+.s24-thread-head .who { flex-direction: row; align-items: center; gap: 10px; }
+.s24-thread-head .who-text { display: flex; flex-direction: column; }
+.thread-actions { display: flex; gap: 8px; }
+
+/* ── Adjuntos en las burbujas ─────────────────────────────────────────────── */
+.s24-bubble-text { display: block; }
+.s24-adjunto-img { display: block; max-width: 100%; max-height: 260px; border-radius: 10px; margin-bottom: 4px; }
+.s24-adjunto-audio { display: block; width: 220px; max-width: 100%; margin-bottom: 2px; }
+.s24-adjunto-doc {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px;
+  background: color-mix(in srgb, currentColor 8%, transparent); text-decoration: none; color: inherit;
+  font-size: 12.5px; font-weight: 600; margin-bottom: 2px;
+}
+
+/* ── Botón de adjuntar archivo en el composer ─────────────────────────────── */
+.s24-attach {
+  flex: none; width: 38px; height: 38px; border-radius: 11px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+  border: 1px solid var(--border); background: var(--surface);
+}
+.s24-attach:hover { background: var(--surface-soft); }
+.s24-attach[data-disabled="true"] { opacity: 0.5; cursor: default; pointer-events: none; }
+
+.s24-composer input:disabled,
+.s24-notes textarea:disabled { opacity: 0.6; cursor: not-allowed; }
 
 @media (max-width: 860px) {
   .s24-console { grid-template-columns: 1fr; }

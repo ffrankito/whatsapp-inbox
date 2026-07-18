@@ -21,6 +21,8 @@ export async function GET(request: NextRequest) {
       phone: c.phone,
       lastMessageBody: c.mensajes.at(-1)?.body,
       unreadCount: c.unreadCount,
+      estado: c.estado,
+      asignadaA: c.asignadaA,
     }))
     return NextResponse.json({ conversations })
   }
@@ -33,6 +35,8 @@ export async function GET(request: NextRequest) {
       phone: c.phone,
       lastMessageBody: c.mensajes.at(-1)?.body,
       unreadCount: 0,
+      estado: c.estado,
+      asignadaA: c.asignadaA,
     }))
     return NextResponse.json({ conversations })
   }

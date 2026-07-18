@@ -435,3 +435,73 @@ Lo que falta cerrar:
    procesamos CSS de terceros. `npm audit fix --force` bajaría Next.js a la v9 y
    `drizzle-kit` a una versión vieja — **no aplicar**, sería peor que el problema.
    Revisar de nuevo si en algún momento aparece un fix sin breaking changes.
+
+## 16. Corrección del payload de Kapso (con evidencia real, no adivinado)
+
+La forma original de `src/app/api/kapso/webhook/route.ts` (`whatsapp_config.phone_number_id`)
+era una suposición sin confirmar, marcada como riesgo conocido. Se corrigió con evidencia
+de dos fuentes independientes:
+
+1. El inbox de WhatsApp de Huellas de Paz (mismo proveedor, Kapso, corriendo en
+   producción hoy) — confirma `conversation.phone_number` (con "+", hay que sacarlo) y
+   `conversation.kapso.contact_name`.
+2. El código fuente del SDK y la reference-app oficial de Kapso
+   (`github.com/gokapso/whatsapp-cloud-api-js` y `whatsapp-cloud-inbox`) más su
+   documentación (`docs.kapso.ai`) — confirma que `phone_number_id` va en la **raíz**
+   del payload (o en `conversation.phone_number_id`), nunca dentro de un objeto
+   `whatsapp_config` (eso no existe en ningún lado de la doc de Kapso).
+
+Toda la lógica de parseo quedó centralizada en `src/lib/kapso/parseWebhook.ts`
+(`parsearMensajeEntrante`), en vez de vivir inline en la ruta — así queda un solo lugar
+para ajustar si aparece algo más por confirmar contra un webhook real.
+
+**Sigue pendiente**: Kapso soporta un modo de webhooks "en batch" (`{ batch: true, data:
+[...] }`) — no está habilitado hoy así que no se maneja, pero si en algún momento se
+activa, `parsearMensajeEntrante` va a necesitar iterar `payload.data` en vez de leer el
+payload directo.
+
+## 17. Adjuntos multimedia (audio, imágenes, documentos)
+
+Pedido explícito: paridad con Huellas de Paz, que ya maneja audio y documentos.
+
+**Recibir:** Kapso espeja el archivo a una URL propia (`message.kapso.media_url`) poco
+después de recibirlo — se usa esa URL directo, **sin re-hostear en storage propio**
+(a diferencia de Huellas de Paz, que descarga por `mediaId` y sube a Supabase Storage —
+ese paso ya no hace falta gracias a que Kapso lo resuelve solo). Si el mensaje llega
+antes de que Kapso termine de espejarlo, se guarda como texto (`"[Audio — todavía
+procesándose]"`) sin adjunto — limitación conocida, no se reintenta la descarga.
+
+**Mandar:** se sube el archivo directo a la API de medios de Kapso
+(`POST {phoneNumberId}/media`, confirmado contra el SDK oficial) y se manda por
+`id` — tampoco hace falta storage propio para esto. Para mostrarlo en nuestro propio
+hilo (ya que Kapso no devuelve una URL pública de lo que nosotros subimos) se guarda
+como `data:` URL en memoria — límite de 8MB por archivo, suficiente para audios/
+documentos cortos, sin agregar una dependencia de storage externo en esta etapa.
+
+Tipos soportados: imagen, audio, documento, video. Sticker/ubicación/reacciones no
+están soportados todavía.
+
+## 18. Asignación / bloqueo entre agentes
+
+Pedido explícito: cuando un agente toma una conversación, otros agentes no pueden
+responder hasta que la libere. Mismo patrón que ya usa Huellas de Paz
+(`asignadaAId` + acción "tomar"), replicado acá.
+
+**Estados:** `sin_asignar` → `asignada` (con `asignadaA: {id, nombre}`) → `cerrada`.
+Cualquiera puede tomar una conversación sin asignar; una vez asignada, todas las rutas
+que modifican algo (`responder`, `notas`, `adjunto`) verifican que quien pide sea el
+agente dueño — si no, devuelven `423 Locked`. Tomarla cuando ya está asignada a otro
+devuelve `409 Conflict`.
+
+**El problema real que había que resolver: ¿quién es "el agente"?** Todavía no hay
+login — la identidad recién existe de verdad con el SSO de GHL (Fase 6). Mientras
+tanto (Fases 1–2, que es donde se puede probar esto hoy), `/inbox` pide el nombre una
+vez al entrar (`src/app/inbox/page.tsx`), genera un id random, y lo guarda en
+`localStorage` — se manda en los headers `x-s24-agente-id` / `x-s24-agente-nombre` en
+cada pedido que modifica algo. `src/lib/agente.ts` (`agenteActual`) prioriza siempre el
+SSO de GHL si está disponible, y cae a estos headers solo si no lo está — así el mismo
+código sirve para las dos etapas sin tener que reescribirlo en la Fase 6.
+
+**Importante — esto NO es autenticación real**, es solo lo mínimo para poder probar el
+bloqueo con varias pestañas/navegadores hoy. No reemplaza el control de acceso real que
+va a dar GHL más adelante.

@@ -1,4 +1,6 @@
 import type { NumeroId } from '@/lib/ghl/numeros'
+import type { Adjunto } from '@/lib/mensaje'
+import type { Agente, ResultadoAsignacion } from '@/lib/standalone/store'
 import { DEMO_SEED, type DemoConversacion } from './data'
 
 export { DEMO_MODE } from '@/lib/mode'
@@ -29,11 +31,11 @@ export function obtenerConversacion(id: string): DemoConversacion | undefined {
   return encontrarConversacion(id)
 }
 
-export function agregarMensajeDemo(conversationId: string, body: string, direction: 'inbound' | 'outbound') {
+export function agregarMensajeDemo(conversationId: string, body: string, direction: 'inbound' | 'outbound', adjunto?: Adjunto) {
   const conv = encontrarConversacion(conversationId)
   if (!conv) return null
 
-  const nuevo = { id: nuevoId('demo-msg'), body, direction, dateAdded: new Date().toISOString() }
+  const nuevo = { id: nuevoId('demo-msg'), body, direction, dateAdded: new Date().toISOString(), adjunto }
   conv.mensajes.push(nuevo)
   return nuevo
 }
@@ -42,4 +44,36 @@ export function agregarNotaDemo(contactId: string, body: string) {
   // En modo demo la nota no se persiste en ningún lado real — alcanza con loguearla,
   // total en la Fase 6 esto pasa a ser un POST /contacts/{id}/notes de verdad en GHL.
   console.log(`[demo] nota para ${contactId}: ${body}`)
+}
+
+// ── Asignación / bloqueo entre agentes (misma API que lib/standalone/store) ─
+
+export function puedeEscribirDemo(conv: DemoConversacion, agenteId: string): boolean {
+  if (conv.estado === 'cerrada') return false
+  if (conv.estado === 'sin_asignar') return true
+  return conv.asignadaA?.id === agenteId
+}
+
+export function asignarConversacionDemo(id: string, agente: Agente): ResultadoAsignacion {
+  const conv = encontrarConversacion(id)
+  if (!conv) return { ok: false, motivo: 'no_existe' }
+  if (conv.estado === 'asignada' && conv.asignadaA?.id !== agente.id) {
+    return { ok: false, motivo: 'ya_asignada', asignadaA: conv.asignadaA }
+  }
+  conv.estado = 'asignada'
+  conv.asignadaA = agente
+  return { ok: true }
+}
+
+export function liberarConversacionDemo(id: string) {
+  const conv = encontrarConversacion(id)
+  if (!conv) return
+  conv.estado = 'sin_asignar'
+  conv.asignadaA = undefined
+}
+
+export function cerrarConversacionDemo(id: string) {
+  const conv = encontrarConversacion(id)
+  if (!conv) return
+  conv.estado = 'cerrada'
 }

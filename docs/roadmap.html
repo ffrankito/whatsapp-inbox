@@ -274,6 +274,9 @@
           <li class="checked"><span class="box"></span><span class="t">Modo demo: el inbox muestra conversaciones de ejemplo fijas</span></li>
           <li class="checked"><span class="box"></span><span class="t">Responder y agregar notas funciona en pantalla, sin mandar nada real</span></li>
           <li class="checked"><span class="box"></span><span class="t">Armar la imagen Docker — probada localmente, build y arranque OK</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Rediseño visual con el logo real y colores de marca de Security24</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Adjuntos (imagen/audio/documento/video) en el hilo, paridad con Huellas de Paz</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Asignación/bloqueo: al tomar una conversación, otros agentes quedan bloqueados</span></li>
           <li><span class="box"></span><span class="t">Publicarla en un servidor interno del data center</span></li>
           <li><span class="box"></span><span class="t">Mostrar internamente y juntar feedback de diseño</span></li>
         </ul>
@@ -304,13 +307,14 @@
         </div>
         <ul class="checklist">
           <li class="checked"><span class="box"></span><span class="t">Código listo y probado con un mensaje simulado: guarda en memoria, responde por Kapso</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Parser del webhook corregido con evidencia real (Huellas de Paz + SDK oficial de Kapso), ya no una suposición</span></li>
           <li><span class="box"></span><span class="t">Conectar uno (o los 3) números por Kapso en modo coexistencia (falta acceso a Meta Business Manager)</span></li>
           <li><span class="box"></span><span class="t">Con el número real: responder desde el inbox y confirmar que sale por WhatsApp de verdad</span></li>
         </ul>
         <div class="note">
-          <b>Ojo con esto:</b> el código que interpreta los mensajes que manda Kapso está
-          escrito según su documentación, pero todavía no se probó contra un mensaje real
-          — acá es donde se termina de ajustar.
+          <b>Ojo con esto:</b> el parser ya se corrigió con evidencia de dos fuentes reales
+          (no adivinado), pero falta la confirmación final contra un mensaje de un número
+          conectado de verdad, por si aparece algún campo no cubierto todavía.
         </div>
         <div class="gate"><b>Punto de decisión:</b> se pasa a la Fase 3 solo si esto funciona bien.</div>
       </div>

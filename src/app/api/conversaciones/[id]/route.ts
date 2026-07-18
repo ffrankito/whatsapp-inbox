@@ -11,13 +11,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   if (DEMO_MODE) {
     const conv = obtenerDemo(id)
     if (!conv) return NextResponse.json({ error: 'No existe esa conversación' }, { status: 404 })
-    return NextResponse.json({ messages: { messages: conv.mensajes } })
+    return NextResponse.json({ messages: { messages: conv.mensajes }, estado: conv.estado, asignadaA: conv.asignadaA })
   }
 
   if (STANDALONE_MODE) {
     const conv = obtenerStandalone(id)
     if (!conv) return NextResponse.json({ error: 'No existe esa conversación' }, { status: 404 })
-    return NextResponse.json({ messages: { messages: conv.mensajes } })
+    return NextResponse.json({ messages: { messages: conv.mensajes }, estado: conv.estado, asignadaA: conv.asignadaA })
   }
 
   const sesion = await sesionActual()

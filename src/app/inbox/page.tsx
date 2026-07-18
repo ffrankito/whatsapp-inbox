@@ -15,6 +15,11 @@ const NUMEROS: { id: NumeroId; nombre: string }[] = [
   { id: 'fullcontrol', nombre: 'App Full Control' },
 ]
 
+type Agente = { id: string; nombre: string }
+type EstadoConversacion = 'sin_asignar' | 'asignada' | 'cerrada'
+type TipoAdjunto = 'image' | 'audio' | 'document' | 'video'
+type Adjunto = { url: string; tipo: TipoAdjunto; nombre?: string }
+
 type Conversacion = {
   id: string
   contactId: string
@@ -23,6 +28,8 @@ type Conversacion = {
   phone?: string
   lastMessageBody?: string
   unreadCount?: number
+  estado?: EstadoConversacion
+  asignadaA?: Agente
 }
 
 type Mensaje = {
@@ -30,11 +37,20 @@ type Mensaje = {
   body: string
   direction: 'inbound' | 'outbound'
   dateAdded: string
+  adjunto?: Adjunto
 }
 
 // Tiempo real vía SSE (/api/eventos) — este poll es solo red de seguridad por si se
 // corta la conexión SSE (reinicio del contenedor, deploy). Ver ARCHITECTURE.md §5.1.
 const POLL_RESPALDO_MS = 45_000
+const AGENTE_STORAGE_KEY = 's24_agente'
+
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/).filter(Boolean)
+  if (partes.length === 0) return '?'
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase()
+  return (partes[0][0] + partes[1][0]).toUpperCase()
+}
 
 export default function InboxPage() {
   const [ssoListo, setSsoListo] = useState(false)
@@ -45,6 +61,36 @@ export default function InboxPage() {
   const [texto, setTexto] = useState('')
   const [nota, setNota] = useState('')
   const [enviando, setEnviando] = useState(false)
+
+  // ── Identidad del agente (solo hace falta mientras no haya SSO de GHL —
+  // ver ARCHITECTURE.md, "Asignación / bloqueo entre agentes") ─────────────
+  const [agente, setAgente] = useState<Agente | null>(null)
+  const [nombreInput, setNombreInput] = useState('')
+
+  useEffect(() => {
+    try {
+      const guardado = localStorage.getItem(AGENTE_STORAGE_KEY)
+      if (guardado) setAgente(JSON.parse(guardado))
+    } catch {
+      // localStorage no disponible o corrupto — se vuelve a pedir el nombre
+    }
+  }, [])
+
+  function confirmarAgente() {
+    const nombre = nombreInput.trim()
+    if (!nombre) return
+    const nuevo: Agente = { id: crypto.randomUUID(), nombre }
+    localStorage.setItem(AGENTE_STORAGE_KEY, JSON.stringify(nuevo))
+    setAgente(nuevo)
+  }
+
+  function headersConAgente(extra: Record<string, string> = {}): Record<string, string> {
+    return {
+      ...extra,
+      'x-s24-inbox': '1',
+      ...(agente ? { 'x-s24-agente-id': agente.id, 'x-s24-agente-nombre': agente.nombre } : {}),
+    }
+  }
 
   // ── Handshake SSO con GHL (iframe del Custom Menu Link) ──────────────────
   useEffect(() => {
@@ -148,6 +194,13 @@ export default function InboxPage() {
   }, [ssoListo, cargarConversaciones, cargarMensajes])
 
   const seleccionada = conversaciones.find((c) => c.id === seleccionadaId) ?? null
+  const esMia = !!seleccionada && !!agente && seleccionada.asignadaA?.id === agente.id
+  const puedeEscribir = !!seleccionada && seleccionada.estado !== 'cerrada' && (!seleccionada.asignadaA || esMia)
+
+  async function refrescarTodo() {
+    await cargarConversaciones()
+    if (seleccionadaIdRef.current) await cargarMensajes(seleccionadaIdRef.current)
+  }
 
   async function responder() {
     if (!seleccionada || !texto.trim()) return
@@ -155,10 +208,30 @@ export default function InboxPage() {
     try {
       await fetch(`/api/conversaciones/${seleccionada.id}/responder`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-s24-inbox': '1' },
+        headers: headersConAgente({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ contactId: seleccionada.contactId, numero: numeroActivo, message: texto }),
       })
       setTexto('')
+      await cargarMensajes(seleccionada.id)
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  async function subirArchivo(file: File) {
+    if (!seleccionada) return
+    const form = new FormData()
+    form.append('archivo', file)
+    form.append('numero', numeroActivo)
+    form.append('contactId', seleccionada.contactId)
+    setEnviando(true)
+    try {
+      await fetch(`/api/conversaciones/${seleccionada.id}/adjunto`, {
+        method: 'POST',
+        headers: headersConAgente(),
+        body: form,
+      })
+      await cargarMensajes(seleccionada.id)
     } finally {
       setEnviando(false)
     }
@@ -168,10 +241,58 @@ export default function InboxPage() {
     if (!seleccionada || !nota.trim()) return
     await fetch(`/api/conversaciones/${seleccionada.id}/notas`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-s24-inbox': '1' },
+      headers: headersConAgente({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ contactId: seleccionada.contactId, body: nota }),
     })
     setNota('')
+  }
+
+  async function tomar() {
+    if (!seleccionada) return
+    await fetch(`/api/conversaciones/${seleccionada.id}/asignar`, {
+      method: 'POST',
+      headers: headersConAgente({ 'Content-Type': 'application/json' }),
+      body: '{}',
+    })
+    await refrescarTodo()
+  }
+
+  async function liberar() {
+    if (!seleccionada) return
+    await fetch(`/api/conversaciones/${seleccionada.id}/liberar`, { method: 'POST', headers: headersConAgente() })
+    await refrescarTodo()
+  }
+
+  async function cerrar() {
+    if (!seleccionada) return
+    await fetch(`/api/conversaciones/${seleccionada.id}/cerrar`, { method: 'POST', headers: headersConAgente() })
+    await refrescarTodo()
+  }
+
+  // ── Gate: pedir nombre antes de mostrar el inbox (identidad para el bloqueo) ─
+  if (!agente) {
+    return (
+      <div className="s24-inbox">
+        <div className="s24-agente-gate">
+          <div className="s24-agente-card">
+            <span className="mark">💬</span>
+            <h1>¿Quién sos?</h1>
+            <p>Se usa para saber quién tiene tomada cada conversación.</p>
+            <input
+              type="text"
+              placeholder="Tu nombre"
+              value={nombreInput}
+              onChange={(e) => setNombreInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && confirmarAgente()}
+              autoFocus
+            />
+            <button className="s24-btn primary" onClick={confirmarAgente} disabled={!nombreInput.trim()}>
+              Entrar
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -181,7 +302,7 @@ export default function InboxPage() {
           <span className="mark">💬</span>
           <div>
             <h1>Inbox WhatsApp</h1>
-            <div className="sub">Área comercial · Security24</div>
+            <div className="sub">Área comercial · Security24 · {agente.nombre}</div>
           </div>
         </div>
         <div className="s24-channel-status">
@@ -227,14 +348,15 @@ export default function InboxPage() {
               onClick={() => setSeleccionadaId(c.id)}
             >
               <span className="row1">
+                <span className="s24-avatar">{iniciales(c.fullName || c.contactName || c.phone || '?')}</span>
                 <span className="who">{c.fullName || c.contactName || c.phone || 'Sin nombre'}</span>
               </span>
               {c.lastMessageBody && <div className="preview">{c.lastMessageBody}</div>}
-              {!!c.unreadCount && (
-                <div className="chips">
-                  <span className="s24-chip">{c.unreadCount} sin leer</span>
-                </div>
-              )}
+              <div className="chips">
+                {!!c.unreadCount && <span className="s24-chip">{c.unreadCount} sin leer</span>}
+                {c.estado === 'asignada' && <span className="s24-chip lock">🔒 {c.asignadaA?.nombre}</span>}
+                {c.estado === 'cerrada' && <span className="s24-chip closed">Cerrada</span>}
+              </div>
             </button>
           ))}
         </div>
@@ -246,29 +368,65 @@ export default function InboxPage() {
             <>
               <div className="s24-thread-head">
                 <div className="who">
-                  <span className="name">{seleccionada.fullName || seleccionada.contactName || 'Sin nombre'}</span>
-                  <span className="id">{seleccionada.phone}</span>
+                  <span className="s24-avatar lg">{iniciales(seleccionada.fullName || seleccionada.contactName || seleccionada.phone || '?')}</span>
+                  <span className="who-text">
+                    <span className="name">{seleccionada.fullName || seleccionada.contactName || 'Sin nombre'}</span>
+                    <span className="id">{seleccionada.phone}</span>
+                  </span>
+                </div>
+                <div className="thread-actions">
+                  {(!seleccionada.estado || seleccionada.estado === 'sin_asignar') && (
+                    <button className="s24-btn primary" onClick={tomar}>Tomar</button>
+                  )}
+                  {esMia && seleccionada.estado === 'asignada' && (
+                    <>
+                      <button className="s24-btn" onClick={liberar}>Liberar</button>
+                      <button className="s24-btn" onClick={cerrar}>Cerrar</button>
+                    </>
+                  )}
                 </div>
               </div>
+
+              {!puedeEscribir && seleccionada.estado === 'asignada' && !esMia && (
+                <div className="s24-lock-banner">🔒 Esta conversación la tiene tomada <b>{seleccionada.asignadaA?.nombre}</b> — no podés responder hasta que la libere.</div>
+              )}
+              {seleccionada.estado === 'cerrada' && (
+                <div className="s24-lock-banner">Esta conversación está cerrada.</div>
+              )}
 
               <div className="s24-bubbles">
                 {mensajes.map((m) => (
                   <div key={m.id} className={`s24-bubble ${m.direction === 'inbound' ? 'in' : 'out'}`}>
-                    {m.body}
+                    {m.adjunto && <Adjunto adjunto={m.adjunto} />}
+                    {m.body && <span className="s24-bubble-text">{m.body}</span>}
                     <span className="t">{new Date(m.dateAdded).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                 ))}
               </div>
 
               <div className="s24-composer">
+                <label className="s24-attach" data-disabled={String(!puedeEscribir)}>
+                  📎
+                  <input
+                    type="file"
+                    hidden
+                    disabled={!puedeEscribir}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) subirArchivo(file)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
                 <input
                   type="text"
-                  placeholder="Escribir una respuesta…"
+                  placeholder={puedeEscribir ? 'Escribir una respuesta…' : 'Tomá la conversación para responder'}
                   value={texto}
+                  disabled={!puedeEscribir}
                   onChange={(e) => setTexto(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && responder()}
                 />
-                <button className="s24-btn primary" onClick={responder} disabled={enviando || !texto.trim()}>
+                <button className="s24-btn primary" onClick={responder} disabled={!puedeEscribir || enviando || !texto.trim()}>
                   Enviar
                 </button>
               </div>
@@ -280,10 +438,11 @@ export default function InboxPage() {
                 <textarea
                   placeholder="Agregar una nota a este contacto…"
                   value={nota}
+                  disabled={!puedeEscribir}
                   onChange={(e) => setNota(e.target.value)}
                 />
                 <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
-                  <button className="s24-btn" onClick={guardarNota} disabled={!nota.trim()}>
+                  <button className="s24-btn" onClick={guardarNota} disabled={!puedeEscribir || !nota.trim()}>
                     Guardar nota
                   </button>
                 </div>
@@ -293,5 +452,22 @@ export default function InboxPage() {
         </section>
       </div>
     </div>
+  )
+}
+
+function Adjunto({ adjunto }: { adjunto: Adjunto }) {
+  if (adjunto.tipo === 'image') {
+    return <img className="s24-adjunto-img" src={adjunto.url} alt={adjunto.nombre || 'Imagen'} />
+  }
+  if (adjunto.tipo === 'video') {
+    return <video className="s24-adjunto-img" src={adjunto.url} controls />
+  }
+  if (adjunto.tipo === 'audio') {
+    return <audio className="s24-adjunto-audio" src={adjunto.url} controls />
+  }
+  return (
+    <a className="s24-adjunto-doc" href={adjunto.url} target="_blank" rel="noreferrer" download={adjunto.nombre}>
+      📄 <span>{adjunto.nombre || 'Descargar documento'}</span>
+    </a>
   )
 }

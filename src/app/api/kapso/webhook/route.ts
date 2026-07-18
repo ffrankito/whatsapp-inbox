@@ -6,6 +6,7 @@ import { STANDALONE_MODE } from '@/lib/mode'
 import { encontrarOCrearConversacion, agregarMensaje } from '@/lib/standalone/store'
 import { webhookLimitado } from '@/lib/rateLimit'
 import { emitirEvento } from '@/lib/events'
+import { parsearMensajeEntrante } from '@/lib/kapso/parseWebhook'
 
 // TODO: reemplazar por la location real una vez definido dónde vive cada instalación
 // (hoy: sandbox de developer, location de test UnDaROg6tyLshlODU22O — ver ARCHITECTURE.md)
@@ -40,41 +41,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  // NOTA: shape confirmado parcialmente contra la doc de Kapso (whatsapp_config.phone_number_id,
-  // message.*). Falta validar contra un webhook real de la cuenta de Security24 antes de producción.
-  const phoneNumberId: string | undefined = payload?.whatsapp_config?.phone_number_id
-  const numero = phoneNumberId ? numeroPorPhoneId(phoneNumberId) : undefined
-
-  if (!numero) {
-    console.error('[Kapso webhook] no se pudo identificar el número (phone_number_id):', phoneNumberId)
+  // Nota: si algún día se activa el batching de Kapso, el payload cambia de forma
+  // ({ batch: true, data: [...] }) — no está habilitado hoy, así que no se maneja acá.
+  const entrante = parsearMensajeEntrante(payload)
+  if (!entrante) {
     return NextResponse.json({ ok: true })
   }
 
-  const msg = payload?.message
-  const telefono: string | undefined = msg?.from ?? payload?.conversation?.contact_phone
-  const texto: string | undefined = msg?.text?.body
-  const nombreContacto: string | undefined =
-    payload?.contact?.profile?.name ?? payload?.conversation?.contact_name ?? undefined
-
-  if (!telefono || !texto) {
+  const numero = numeroPorPhoneId(entrante.phoneNumberId)
+  if (!numero) {
+    console.error('[Kapso webhook] no se pudo identificar el número (phone_number_id):', entrante.phoneNumberId)
     return NextResponse.json({ ok: true })
   }
 
   // Fase 2 del roadmap: Kapso real conectado, todavía sin GHL — se guarda en memoria
   // en vez de reenviar (ver ARCHITECTURE.md §14.2). Se descarta en la Fase 6.
   if (STANDALONE_MODE) {
-    const conv = encontrarOCrearConversacion(numero.id, telefono, nombreContacto)
-    agregarMensaje(conv.id, texto, 'inbound')
+    const conv = encontrarOCrearConversacion(numero.id, entrante.telefono, entrante.nombreContacto)
+    agregarMensaje(conv.id, entrante.texto, 'inbound', entrante.adjunto)
     emitirEvento({ tipo: 'mensaje', numero: numero.id })
     return NextResponse.json({ ok: true })
   }
 
   try {
-    const { contact } = await upsertContact(GHL_LOCATION_ID, telefono, nombreContacto)
+    const { contact } = await upsertContact(GHL_LOCATION_ID, entrante.telefono, entrante.nombreContacto)
     await agregarMensajeEntrante(GHL_LOCATION_ID, {
       contactId: contact.id,
       conversationProviderId: numero.conversationProviderId,
-      message: texto,
+      message: entrante.texto,
+      attachments: entrante.adjunto ? [entrante.adjunto.url] : undefined,
     })
     emitirEvento({ tipo: 'mensaje', numero: numero.id })
   } catch (err) {

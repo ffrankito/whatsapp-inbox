@@ -8,6 +8,9 @@ import { obtenerConversacion as obtenerStandalone, agregarMensaje as agregarMens
 import { enviarPorKapso } from '@/lib/kapso/client'
 import { pedidoConfiable } from '@/lib/csrf'
 import { emitirEvento } from '@/lib/events'
+import { agenteActual } from '@/lib/agente'
+import { obtenerConversacion as obtenerDemo, puedeEscribirDemo } from '@/lib/demo/store'
+import { puedeEscribir } from '@/lib/standalone/store'
 
 type Body = {
   contactId: string
@@ -33,7 +36,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Faltan contactId, numero o message' }, { status: 400 })
   }
 
+  const agente = await agenteActual(request)
+
   if (DEMO_MODE) {
+    const conv = obtenerDemo(id)
+    if (!conv) return NextResponse.json({ error: 'No existe esa conversación' }, { status: 404 })
+    if (!agente || !puedeEscribirDemo(conv, agente.id)) {
+      return NextResponse.json({ error: 'Esta conversación está asignada a otro agente' }, { status: 423 })
+    }
     const nuevo = agregarMensajeDemo(id, message, 'outbound')
     if (!nuevo) return NextResponse.json({ error: 'No existe esa conversación' }, { status: 404 })
     return NextResponse.json({ conversationId: id, messageId: nuevo.id, status: 'delivered' })
@@ -42,6 +52,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (STANDALONE_MODE) {
     const conv = obtenerStandalone(id)
     if (!conv) return NextResponse.json({ error: 'No existe esa conversación' }, { status: 404 })
+    if (!agente || !puedeEscribir(conv, agente.id)) {
+      return NextResponse.json({ error: 'Esta conversación está asignada a otro agente' }, { status: 423 })
+    }
     try {
       await enviarPorKapso(numero, conv.phone, message)
     } catch (err) {
