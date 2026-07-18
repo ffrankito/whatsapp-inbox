@@ -1,7 +1,8 @@
 import type { NumeroId } from '@/lib/ghl/numeros'
 import type { Adjunto } from '@/lib/mensaje'
 import type { Agente, ResultadoAsignacion } from '@/lib/standalone/store'
-import { DEMO_SEED, type DemoConversacion } from './data'
+import { DEMO_SEED, type DemoConversacion, type DemoMensaje } from './data'
+import { emitirEvento } from '@/lib/events'
 
 export { DEMO_MODE } from '@/lib/mode'
 
@@ -35,9 +36,39 @@ export function agregarMensajeDemo(conversationId: string, body: string, directi
   const conv = encontrarConversacion(conversationId)
   if (!conv) return null
 
-  const nuevo = { id: nuevoId('demo-msg'), body, direction, dateAdded: new Date().toISOString(), adjunto }
+  const nuevo: DemoMensaje = {
+    id: nuevoId('demo-msg'),
+    body,
+    direction,
+    dateAdded: new Date().toISOString(),
+    adjunto,
+    status: direction === 'outbound' ? 'sent' : undefined,
+  }
   conv.mensajes.push(nuevo)
+
+  // Solo para que la demo se vea "viva" sin conectar nada real: simula el mismo
+  // recorrido de tildes que en STANDALONE_MODE vendría de un webhook de estado real de
+  // Kapso (ver ARCHITECTURE.md §19) — no representa nada que haya pasado de verdad.
+  if (direction === 'outbound') {
+    const numero = numeroDeConversacionDemo(conv)
+    setTimeout(() => {
+      nuevo.status = 'delivered'
+      emitirEvento({ tipo: 'mensaje', numero })
+    }, 1200)
+    setTimeout(() => {
+      nuevo.status = 'read'
+      emitirEvento({ tipo: 'mensaje', numero })
+    }, 3500)
+  }
+
   return nuevo
+}
+
+function numeroDeConversacionDemo(conv: DemoConversacion): NumeroId {
+  for (const numero of Object.keys(estado) as NumeroId[]) {
+    if (estado[numero].includes(conv)) return numero
+  }
+  return 'dealers'
 }
 
 export function agregarNotaDemo(contactId: string, body: string) {

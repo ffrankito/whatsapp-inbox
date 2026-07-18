@@ -1,5 +1,5 @@
 import type { NumeroId } from '@/lib/ghl/numeros'
-import type { Adjunto } from '@/lib/mensaje'
+import type { Adjunto, EstadoMensaje } from '@/lib/mensaje'
 
 // Fase 2 del roadmap: Kapso real conectado, pero todavía sin GHL — se guarda en memoria
 // nomás. No hace falta persistencia acá: como el número queda en coexistencia, el
@@ -15,6 +15,8 @@ export type StandaloneMensaje = {
   direction: 'inbound' | 'outbound'
   dateAdded: string
   adjunto?: Adjunto
+  status?: EstadoMensaje
+  waId?: string
 }
 
 export type StandaloneConversacion = {
@@ -67,12 +69,46 @@ export function agregarMensaje(
   body: string,
   direction: 'inbound' | 'outbound',
   adjunto?: Adjunto,
+  opts: { status?: EstadoMensaje; waId?: string } = {},
 ) {
   const conv = conversaciones.get(conversationId)
   if (!conv) return null
-  const nuevo = { id: nuevoId('standalone-msg'), body, direction, dateAdded: new Date().toISOString(), adjunto }
+  const nuevo: StandaloneMensaje = {
+    id: nuevoId('standalone-msg'),
+    body,
+    direction,
+    dateAdded: new Date().toISOString(),
+    adjunto,
+    status: direction === 'outbound' ? (opts.status ?? 'sent') : undefined,
+    waId: opts.waId,
+  }
   conv.mensajes.push(nuevo)
   return nuevo
+}
+
+// Cruza el `waId` que devuelve un webhook de estado de Kapso (`message.id`) contra los
+// mensajes salientes guardados, para actualizar el tick de "enviado/entregado/leído"
+// (ver ARCHITECTURE.md §19). Devuelve el número (canal) al que pertenece, para poder
+// emitir el evento SSE con el scope correcto.
+export function actualizarEstadoMensaje(waId: string, status: EstadoMensaje): { numero: NumeroId } | null {
+  for (const conv of conversaciones.values()) {
+    const msg = conv.mensajes.find((m) => m.waId === waId)
+    if (msg) {
+      msg.status = status
+      return { numero: conv.numero }
+    }
+  }
+  return null
+}
+
+// Para el indicador de "escribiendo…": Meta requiere el id del último mensaje ENTRANTE
+// para poder mostrarle a ese contacto que le estamos por responder (ver ARCHITECTURE.md §19).
+export function ultimoMensajeEntranteWaId(conv: StandaloneConversacion): string | undefined {
+  for (let i = conv.mensajes.length - 1; i >= 0; i--) {
+    const m = conv.mensajes[i]
+    if (m.direction === 'inbound' && m.waId) return m.waId
+  }
+  return undefined
 }
 
 // ── Asignación / bloqueo entre agentes ──────────────────────────────────────

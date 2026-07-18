@@ -1,21 +1,27 @@
 .s24-inbox {
-  --bg: #f7f5f1;
+  --bg: #eef1f0;
   --surface: #ffffff;
-  --surface-soft: #fbfaf7;
-  --border: #e6e2d8;
-  --text: #2b2a27;
-  --text-dim: #726e64;
-  --text-faint: #a19c8e;
+  --surface-soft: #f6f7f6;
+  --border: #e3e6e3;
+  --text: #22282a;
+  --text-dim: #5c6567;
+  --text-faint: #98a09f;
 
   /* Marca Security24: teal + navy del logo (escudo) */
   --navy: #182a4d;
+  --navy-2: #22375e;
   --navy-ink: #ffffff;
-  --navy-ink-dim: #aab6cc;
+  --navy-ink-dim: #a7b3cc;
 
   --accent: #14a79e;
+  --accent-2: #0c847d;
   --accent-dim: #0f8880;
   --accent-tint: #e0f5f3;
   --accent-ink: #ffffff;
+
+  --bubble-in: #ffffff;
+  --bubble-out-1: #17b3a9;
+  --bubble-out-2: #0c8a82;
 
   --good: #3fa66e;
   --good-tint: #e7f4ec;
@@ -23,9 +29,10 @@
   --warn-tint: #faf1de;
   --critical: #d1594e;
   --critical-tint: #fbe9e6;
+  --read-tick: #4fc3f7;
 
-  --shadow-sm: 0 1px 2px rgba(43, 42, 39, 0.06);
-  --shadow-md: 0 6px 20px rgba(43, 42, 39, 0.08);
+  --shadow-sm: 0 1px 2px rgba(20, 30, 30, 0.07);
+  --shadow-md: 0 8px 24px rgba(20, 30, 30, 0.1);
 
   font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
@@ -38,26 +45,32 @@
 
 @media (prefers-color-scheme: dark) {
   .s24-inbox {
-    --bg: #221f1b;
-    --surface: #2b2822;
-    --surface-soft: #302c26;
-    --border: #423d34;
-    --text: #f3efe7;
-    --text-dim: #beb6a6;
-    --text-faint: #8b8375;
-    --navy: #0f1c37;
+    --bg: #171b1a;
+    --surface: #212524;
+    --surface-soft: #262a29;
+    --border: #34393a;
+    --text: #eef1ef;
+    --text-dim: #b3bab9;
+    --text-faint: #7c8483;
+    --navy: #101c33;
+    --navy-2: #16233d;
     --navy-ink: #f3efe7;
     --navy-ink-dim: #93a2c0;
     --accent: #2bc0b4;
+    --accent-2: #22a99e;
     --accent-dim: #55d2c7;
     --accent-tint: #17332f;
-    --accent-ink: #0c211e;
+    --accent-ink: #062521;
+    --bubble-in: #262a29;
+    --bubble-out-1: #1f9d92;
+    --bubble-out-2: #146d66;
     --good: #56c286;
     --good-tint: #1f3a2b;
     --warn: #e2b158;
     --warn-tint: #3c2f18;
     --critical: #e37b6e;
     --critical-tint: #402420;
+    --read-tick: #4fc3f7;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
     --shadow-md: 0 10px 26px rgba(0, 0, 0, 0.4);
   }
@@ -67,36 +80,47 @@
 .s24-inbox button { font: inherit; color: inherit; }
 .s24-inbox :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* ── Barra superior ───────────────────────────────────────────────────────── */
 .s24-app-top {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 22px; gap: 16px; flex-wrap: wrap;
-  background: var(--navy); color: var(--navy-ink);
+  padding: 14px 24px; gap: 16px; flex-wrap: wrap;
+  background: linear-gradient(135deg, var(--navy), var(--navy-2));
+  color: var(--navy-ink);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  position: relative; z-index: 2;
 }
 .s24-title { display: flex; align-items: center; gap: 12px; }
 .s24-title .mark {
-  width: 36px; height: 36px; border-radius: 11px;
+  width: 38px; height: 38px; border-radius: 12px;
   object-fit: cover; display: block; flex: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
-.s24-title h1 { font-size: 16px; margin: 0; font-weight: 700; color: var(--navy-ink); }
+.s24-title h1 { font-size: 16px; margin: 0; font-weight: 700; color: var(--navy-ink); letter-spacing: -0.01em; }
 .s24-title .sub { font-size: 12px; color: var(--navy-ink-dim); margin-top: 1px; }
 
-.s24-channel-status { display: flex; gap: 10px; flex-wrap: wrap; }
+.s24-channel-status { display: flex; gap: 14px; flex-wrap: wrap; }
 .s24-status-pill { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--navy-ink-dim); }
-.s24-status-pill .led { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.s24-status-pill .led {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
 
+/* ── Layout de 3 columnas ─────────────────────────────────────────────────── */
 .s24-console {
-  flex: 1; display: grid; grid-template-columns: 216px 272px 1fr; min-height: 0;
+  flex: 1; display: grid; grid-template-columns: 210px 280px 1fr; min-height: 0;
+  background: var(--bg);
 }
 .s24-console > * + * { border-left: 1px solid var(--border); }
 
-.s24-numbers { padding: 14px 12px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.s24-numbers { padding: 16px 10px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; background: var(--surface); }
 .s24-numbers .eyebrow {
-  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--text-faint); padding: 2px 8px 8px;
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-faint); padding: 2px 10px 10px;
 }
 .s24-num-btn {
   all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 5px;
   padding: 11px 12px; border-radius: 12px; border: 1px solid transparent;
+  transition: background 0.12s ease;
 }
 .s24-num-btn:hover { background: var(--surface-soft); }
 .s24-num-btn .row1 { display: flex; align-items: center; justify-content: space-between; width: 100%; }
@@ -106,137 +130,204 @@
   border-radius: 999px; min-width: 18px; height: 18px;
   display: flex; align-items: center; justify-content: center; padding: 0 5px;
 }
-.s24-num-btn[data-active="true"] { background: var(--accent-tint); }
-.s24-num-btn[data-active="true"] .name { color: var(--accent-dim); }
-
-.s24-convlist { display: flex; flex-direction: column; overflow-y: auto; }
-.s24-convlist .listhead {
-  padding: 14px 16px 8px; font-size: 11px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.04em; color: var(--text-faint);
+.s24-num-btn[data-active="true"] {
+  background: var(--accent-tint); box-shadow: inset 3px 0 0 var(--accent);
 }
-.s24-convlist .empty { padding: 24px 16px; color: var(--text-faint); font-size: 12.5px; }
+.s24-num-btn[data-active="true"] .name { color: var(--accent-2); }
+
+/* ── Lista de conversaciones ──────────────────────────────────────────────── */
+.s24-convlist { display: flex; flex-direction: column; overflow-y: auto; background: var(--surface); }
+.s24-convlist .listhead {
+  padding: 14px 18px 10px; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-faint);
+}
+.s24-convlist .empty { padding: 28px 18px; color: var(--text-faint); font-size: 12.5px; text-align: center; }
 .s24-conv-item {
-  all: unset; cursor: pointer; display: block; padding: 11px 16px; border-bottom: 1px solid var(--border);
+  all: unset; cursor: pointer; display: block; padding: 12px 16px 12px 14px;
+  border-bottom: 1px solid var(--border); border-left: 3px solid transparent;
+  transition: background 0.12s ease;
 }
 .s24-conv-item:hover { background: var(--surface-soft); }
-.s24-conv-item[data-active="true"] { background: var(--accent-tint); }
-.s24-conv-item .row1 { display: flex; justify-content: space-between; gap: 8px; }
-.s24-conv-item .who { font-weight: 600; font-size: 13px; }
+.s24-conv-item[data-active="true"] {
+  background: var(--accent-tint); border-left-color: var(--accent);
+}
+.s24-conv-item .row1 { display: flex; align-items: center; gap: 9px; }
+.s24-conv-item .who { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .s24-conv-item .preview {
-  font-size: 12.5px; color: var(--text-dim); margin-top: 3px;
+  font-size: 12.5px; color: var(--text-dim); margin-top: 5px; margin-left: 37px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.s24-conv-item .chips { display: flex; gap: 6px; margin-top: 7px; }
-.s24-chip { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--warn-tint); color: var(--warn); }
-
-.s24-thread { display: flex; flex-direction: column; min-height: 0; }
-.s24-thread-head {
-  padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; border-bottom: 1px solid var(--border);
+.s24-conv-item .chips { display: flex; gap: 6px; margin-top: 7px; margin-left: 37px; flex-wrap: wrap; }
+.s24-chip {
+  font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  background: var(--warn-tint); color: var(--warn); white-space: nowrap;
 }
-.s24-thread-head .who { display: flex; flex-direction: column; }
+
+/* ── Panel del hilo ───────────────────────────────────────────────────────── */
+.s24-thread { display: flex; flex-direction: column; min-height: 0; background: var(--surface); }
+.s24-thread-head {
+  padding: 13px 20px; display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.s24-thread-head .who { flex-direction: row; align-items: center; gap: 11px; }
+.s24-thread-head .who-text { display: flex; flex-direction: column; }
 .s24-thread-head .who .name { font-weight: 700; font-size: 14px; }
 .s24-thread-head .who .id { font-size: 11.5px; color: var(--text-faint); }
+.thread-actions { display: flex; gap: 8px; }
 .s24-thread-empty {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  color: var(--text-faint); font-size: 13px;
+  color: var(--text-faint); font-size: 13px; background: var(--surface-soft);
 }
 
+/* ── Botones ──────────────────────────────────────────────────────────────── */
 .s24-btn {
   all: unset; cursor: pointer; font-size: 12.5px; font-weight: 600;
-  padding: 7px 13px; border-radius: 10px; border: 1px solid var(--border); color: var(--text-dim);
+  padding: 7px 14px; border-radius: 10px; border: 1px solid var(--border); color: var(--text-dim);
+  transition: background 0.12s ease;
 }
 .s24-btn:hover { background: var(--surface-soft); }
-.s24-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-.s24-btn.primary:hover { background: var(--accent-dim); }
+.s24-btn.primary {
+  background: linear-gradient(135deg, var(--bubble-out-1), var(--bubble-out-2));
+  color: var(--accent-ink); border-color: transparent;
+}
+.s24-btn.primary:hover { filter: brightness(1.06); }
 .s24-btn:disabled { opacity: 0.5; cursor: default; }
 
+/* ── Burbujas de mensajes ─────────────────────────────────────────────────── */
 .s24-bubbles {
-  flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px;
-  background: var(--surface-soft);
+  flex: 1; overflow-y: auto; padding: 22px 26px; display: flex; flex-direction: column; gap: 8px;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--text-faint) 14%, transparent) 1px, transparent 0)
+    0 0 / 22px 22px,
+    var(--surface-soft);
 }
-.s24-bubble { max-width: 60%; padding: 9px 12px; border-radius: 14px; font-size: 13px; line-height: 1.5; box-shadow: var(--shadow-sm); white-space: pre-wrap; }
-.s24-bubble .t { display: block; margin-top: 4px; font-size: 10.5px; opacity: 0.6; }
-.s24-bubble.in { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-.s24-bubble.out { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; }
-.s24-bubble.out .t { opacity: 0.8; }
+.s24-bubble {
+  max-width: 62%; padding: 10px 14px; font-size: 13.5px; line-height: 1.55;
+  box-shadow: var(--shadow-sm); white-space: pre-wrap; position: relative;
+}
+.s24-bubble .t {
+  display: flex; align-items: center; justify-content: flex-end; gap: 4px;
+  margin-top: 4px; font-size: 10.5px; opacity: 0.65;
+}
+.s24-bubble.in {
+  align-self: flex-start; background: var(--bubble-in); color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 16px 16px 16px 4px;
+}
+.s24-bubble.out {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--bubble-out-1), var(--bubble-out-2));
+  color: #ffffff;
+  border-radius: 16px 16px 4px 16px;
+}
+.s24-bubble.out .t { opacity: 0.85; }
 
-.s24-composer { display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--border); }
+.s24-tick { font-weight: 700; letter-spacing: -1px; }
+.s24-tick.read { color: var(--read-tick); }
+.s24-tick.failed { color: #ffb4a8; letter-spacing: 0; }
+
+/* ── Composer ─────────────────────────────────────────────────────────────── */
+.s24-composer-wrap { border-top: 1px solid var(--border); background: var(--surface); }
+.s24-composer { display: flex; align-items: center; gap: 10px; padding: 14px 18px; }
 .s24-composer input {
-  flex: 1; font: inherit; padding: 10px 14px; border-radius: 11px;
-  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  flex: 1; font: inherit; padding: 11px 16px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface-soft); color: var(--text);
 }
+.s24-composer input:focus { background: var(--surface); }
+.s24-composer .s24-btn.primary { border-radius: 999px; padding: 10px 20px; }
 
-.s24-notes { border-top: 1px solid var(--border); padding: 12px 18px 16px; }
+.s24-adjunto-chip {
+  display: flex; align-items: center; gap: 10px; margin: 12px 18px 0;
+  padding: 9px 12px; border-radius: 12px;
+  background: var(--accent-tint); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.s24-adjunto-chip .ico { font-size: 18px; flex: none; }
+.s24-adjunto-chip .nombre {
+  font-size: 12.5px; font-weight: 600; color: var(--accent-2); flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.s24-adjunto-chip .peso { font-size: 11px; color: var(--text-faint); flex: none; }
+.s24-adjunto-chip .quitar {
+  all: unset; cursor: pointer; flex: none; width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1;
+  color: var(--text-faint);
+}
+.s24-adjunto-chip .quitar:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
+
+/* ── Notas / auditoría ────────────────────────────────────────────────────── */
+.s24-notes { border-top: 1px solid var(--border); padding: 12px 18px 16px; background: var(--surface); }
 .s24-notes .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
 .s24-notes .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); }
 .s24-notes textarea {
-  width: 100%; font: inherit; padding: 9px 11px; border-radius: 10px;
-  border: 1px solid var(--border); background: var(--surface); color: var(--text); resize: vertical; min-height: 46px;
+  width: 100%; font: inherit; padding: 9px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface-soft); color: var(--text); resize: vertical; min-height: 46px;
 }
+.s24-notes textarea:focus { background: var(--surface); }
 
 /* ── Identidad del agente (gate inicial) ─────────────────────────────────── */
 .s24-agente-gate {
   flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background:
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 45%),
+    var(--bg);
 }
 .s24-agente-card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
-  box-shadow: var(--shadow-md); padding: 32px; max-width: 320px; width: 100%;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+  box-shadow: var(--shadow-md); padding: 34px 32px; max-width: 320px; width: 100%;
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
 }
 .s24-agente-card .mark {
-  width: 56px; height: 56px; border-radius: 15px;
+  width: 60px; height: 60px; border-radius: 17px;
   object-fit: cover; display: block; margin: 0 auto 8px;
+  box-shadow: var(--shadow-md);
 }
-.s24-agente-card h1 { font-size: 17px; margin: 0; }
+.s24-agente-card h1 { font-size: 18px; margin: 0; }
 .s24-agente-card p { font-size: 12.5px; color: var(--text-dim); margin: 0 0 8px; }
 .s24-agente-card input {
-  width: 100%; font: inherit; padding: 10px 14px; border-radius: 11px;
+  width: 100%; font: inherit; padding: 11px 14px; border-radius: 11px;
   border: 1px solid var(--border); background: var(--surface-soft); color: var(--text); text-align: center;
 }
-.s24-agente-card .s24-btn { width: 100%; text-align: center; padding: 10px 14px; margin-top: 4px; }
+.s24-agente-card .s24-btn { width: 100%; text-align: center; padding: 11px 14px; margin-top: 4px; border-radius: 12px; }
 
 /* ── Avatares ─────────────────────────────────────────────────────────────── */
 .s24-avatar {
-  flex: none; width: 28px; height: 28px; border-radius: 50%;
-  background: var(--accent-tint); color: var(--accent-dim);
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--bubble-out-1), var(--navy));
+  color: #ffffff;
   display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em;
+  box-shadow: var(--shadow-sm);
 }
-.s24-avatar.lg { width: 38px; height: 38px; font-size: 13px; }
+.s24-avatar.lg { width: 40px; height: 40px; font-size: 14px; }
 
 /* ── Chips de estado (asignada / cerrada) ────────────────────────────────── */
-.s24-chip.lock { background: var(--accent-tint); color: var(--accent-dim); }
+.s24-chip.lock { background: var(--accent-tint); color: var(--accent-2); }
 .s24-chip.closed { background: var(--surface-soft); color: var(--text-faint); border: 1px solid var(--border); }
 
 .s24-lock-banner {
-  padding: 10px 18px; font-size: 12.5px; color: var(--text-dim);
+  padding: 10px 20px; font-size: 12.5px; color: var(--text-dim);
   background: var(--warn-tint); border-bottom: 1px solid var(--border);
 }
 .s24-lock-banner b { color: var(--text); }
 
-/* ── Cabecera del hilo (avatar + acciones de asignación) ─────────────────── */
-.s24-thread-head .who { flex-direction: row; align-items: center; gap: 10px; }
-.s24-thread-head .who-text { display: flex; flex-direction: column; }
-.thread-actions { display: flex; gap: 8px; }
-
 /* ── Adjuntos en las burbujas ─────────────────────────────────────────────── */
 .s24-bubble-text { display: block; }
-.s24-adjunto-img { display: block; max-width: 100%; max-height: 260px; border-radius: 10px; margin-bottom: 4px; }
-.s24-adjunto-audio { display: block; width: 220px; max-width: 100%; margin-bottom: 2px; }
+.s24-adjunto-img { display: block; max-width: 100%; max-height: 280px; border-radius: 12px; margin-bottom: 5px; }
+.s24-adjunto-audio { display: block; width: 230px; max-width: 100%; margin-bottom: 3px; }
 .s24-adjunto-doc {
-  display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px;
-  background: color-mix(in srgb, currentColor 8%, transparent); text-decoration: none; color: inherit;
-  font-size: 12.5px; font-weight: 600; margin-bottom: 2px;
+  display: flex; align-items: center; gap: 9px; padding: 9px 11px; border-radius: 10px;
+  background: color-mix(in srgb, currentColor 10%, transparent); text-decoration: none; color: inherit;
+  font-size: 12.5px; font-weight: 600; margin-bottom: 3px;
 }
 
 /* ── Botón de adjuntar archivo en el composer ─────────────────────────────── */
 .s24-attach {
-  flex: none; width: 38px; height: 38px; border-radius: 11px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; font-size: 16px;
-  border: 1px solid var(--border); background: var(--surface);
+  flex: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 17px;
+  border: 1px solid var(--border); background: var(--surface-soft);
+  transition: background 0.12s ease;
 }
-.s24-attach:hover { background: var(--surface-soft); }
+.s24-attach:hover { background: var(--accent-tint); }
 .s24-attach[data-disabled="true"] { opacity: 0.5; cursor: default; pointer-events: none; }
 
 .s24-composer input:disabled,

@@ -3,10 +3,11 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { numeroPorPhoneId } from '@/lib/ghl/numeros'
 import { upsertContact, agregarMensajeEntrante } from '@/lib/ghl/client'
 import { STANDALONE_MODE } from '@/lib/mode'
-import { encontrarOCrearConversacion, agregarMensaje } from '@/lib/standalone/store'
+import { encontrarOCrearConversacion, agregarMensaje, actualizarEstadoMensaje } from '@/lib/standalone/store'
 import { webhookLimitado } from '@/lib/rateLimit'
 import { emitirEvento } from '@/lib/events'
 import { parsearMensajeEntrante } from '@/lib/kapso/parseWebhook'
+import type { EstadoMensaje } from '@/lib/mensaje'
 
 // TODO: reemplazar por la location real una vez definido dónde vive cada instalación
 // (hoy: sandbox de developer, location de test UnDaROg6tyLshlODU22O — ver ARCHITECTURE.md)
@@ -30,6 +31,43 @@ export async function POST(request: NextRequest) {
   }
 
   const event = request.headers.get('x-webhook-event') ?? ''
+
+  // Actualizaciones de estado de un mensaje que MANDAMOS nosotros (tick de enviado/
+  // entregado/leído) — confirmado contra Huellas de Paz: Kapso manda estos eventos por
+  // separado del mensaje entrante, con el id en `message.id` y el estado en
+  // `message.kapso.status` (o se deriva del nombre del evento si no viene explícito).
+  // Ver ARCHITECTURE.md §19.
+  const EVENTOS_ESTADO = [
+    'whatsapp.message.status',
+    'whatsapp.message.sent',
+    'whatsapp.message.delivered',
+    'whatsapp.message.read',
+    'whatsapp.message.failed',
+  ]
+  if (EVENTOS_ESTADO.includes(event)) {
+    let payload: any
+    try {
+      payload = JSON.parse(body)
+    } catch {
+      return NextResponse.json({ ok: true })
+    }
+    if (STANDALONE_MODE) {
+      const messageId: string | undefined = payload?.message?.id ?? payload?.message_id
+      const rawStatus: string | undefined = payload?.message?.kapso?.status ?? event.replace('whatsapp.message.', '')
+      const status: EstadoMensaje =
+        rawStatus === 'delivered' ? 'delivered' :
+        rawStatus === 'read' ? 'read' :
+        rawStatus === 'failed' ? 'failed' :
+        'sent'
+      if (messageId) {
+        const resultado = actualizarEstadoMensaje(messageId, status)
+        if (resultado) emitirEvento({ tipo: 'mensaje', numero: resultado.numero })
+      }
+    }
+    // TODO (Fase 6): en modo GHL real todavía no se refleja el estado de entrega ahí.
+    return NextResponse.json({ ok: true })
+  }
+
   if (event !== 'whatsapp.message.received') {
     return NextResponse.json({ ok: true })
   }
@@ -58,7 +96,7 @@ export async function POST(request: NextRequest) {
   // en vez de reenviar (ver ARCHITECTURE.md §14.2). Se descarta en la Fase 6.
   if (STANDALONE_MODE) {
     const conv = encontrarOCrearConversacion(numero.id, entrante.telefono, entrante.nombreContacto)
-    agregarMensaje(conv.id, entrante.texto, 'inbound', entrante.adjunto)
+    agregarMensaje(conv.id, entrante.texto, 'inbound', entrante.adjunto, { waId: entrante.waId })
     emitirEvento({ tipo: 'mensaje', numero: numero.id })
     return NextResponse.json({ ok: true })
   }

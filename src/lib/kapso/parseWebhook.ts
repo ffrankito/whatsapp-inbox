@@ -6,6 +6,7 @@ export type MensajeKapsoEntrante = {
   texto: string
   nombreContacto?: string
   adjunto?: Adjunto
+  waId?: string
 }
 
 const TIPOS_MEDIA: TipoAdjunto[] = ['image', 'audio', 'document', 'video']
@@ -40,12 +41,18 @@ export function parsearMensajeEntrante(payload: any): MensajeKapsoEntrante | nul
   const nombreContacto: string | undefined =
     conversation?.kapso?.contact_name ?? conversation?.contact_name ?? payload?.contact?.profile?.name ?? undefined
 
+  // Id del mensaje en Meta/Kapso (`message.id`, confirmado contra Huellas de Paz) — se
+  // guarda para poder mandar el indicador de "escribiendo…" más adelante (necesita el id
+  // del último mensaje entrante, ver ARCHITECTURE.md §19). Los webhooks de estado en
+  // cambio no lo necesitan acá porque solo actualizan mensajes salientes.
+  const waId: string | undefined = message?.id
+
   const tipo: string | undefined = message?.type
 
   if (tipo === 'text') {
     const texto = message?.text?.body?.trim()
     if (!texto) return null
-    return { phoneNumberId, telefono, texto, nombreContacto }
+    return { phoneNumberId, telefono, texto, nombreContacto, waId }
   }
 
   if (tipo && TIPOS_MEDIA.includes(tipo as TipoAdjunto)) {
@@ -63,6 +70,7 @@ export function parsearMensajeEntrante(payload: any): MensajeKapsoEntrante | nul
         telefono,
         texto: caption || `[${etiquetaTipo(tipo)} — todavía procesándose]`,
         nombreContacto,
+        waId,
       }
     }
 
@@ -72,6 +80,7 @@ export function parsearMensajeEntrante(payload: any): MensajeKapsoEntrante | nul
       texto: caption || `[${etiquetaTipo(tipo)}]`,
       nombreContacto,
       adjunto: { url: mediaUrl, tipo: tipo as TipoAdjunto, nombre: nombreArchivo },
+      waId,
     }
   }
 

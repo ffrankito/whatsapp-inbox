@@ -505,3 +505,81 @@ código sirve para las dos etapas sin tener que reescribirlo en la Fase 6.
 **Importante — esto NO es autenticación real**, es solo lo mínimo para poder probar el
 bloqueo con varias pestañas/navegadores hoy. No reemplaza el control de acceso real que
 va a dar GHL más adelante.
+
+## 19. Paridad con Huellas de Paz: adjunto + caption en un solo mensaje, tildes de estado, "escribiendo…"
+
+Pedido explícito tras revisar el inbox de Huellas de Paz: el diseño visual se rehizo
+(ver más abajo), y además faltaban tres cosas puntuales que ese proyecto sí tiene.
+
+### 19.1 Adjuntar archivo con texto, como WhatsApp
+
+Antes, elegir un archivo lo mandaba al toque, sin poder escribir nada junto — WhatsApp
+deja escribir un texto (caption) que viaja pegado al archivo, en un solo mensaje. Ahora
+`/inbox` hace lo mismo: elegir un archivo lo deja "en espera" (un chip con el nombre
+arriba del composer, con una `×` para sacarlo), el mismo campo de texto de siempre sirve
+de caption, y "Enviar" manda los dos juntos en un solo pedido a
+`POST /api/conversaciones/[id]/adjunto` (`caption` como campo extra del `FormData`).
+
+Un caso especial confirmado contra la API de Meta (y replicado de Huellas de Paz): el
+**audio no admite caption** — si el agente escribió algo igual, se descarta en el
+backend antes de mandarlo a Kapso (`src/app/api/conversaciones/[id]/adjunto/route.ts`),
+mismo criterio que usa Meta.
+
+### 19.2 Tildes de enviado/entregado/leído
+
+Se agrega `status?: 'sending'|'sent'|'delivered'|'read'|'failed'` a los mensajes
+salientes (`src/lib/mensaje.ts`). Igual que Huellas de Paz, son caracteres Unicode
+(`✓` / `✓✓`) con `letter-spacing` negativo para que las dos tildes se vean pegadas como
+en WhatsApp real, no un ícono/SVG — la tilde de "leído" se pinta de celeste
+(`--read-tick`).
+
+**Cómo se entera el sistema del cambio de estado:** en `STANDALONE_MODE`, Kapso manda un
+webhook aparte por cada cambio (`x-webhook-event: whatsapp.message.status` o
+`whatsapp.message.sent/delivered/read/failed`), con el id del mensaje en `message.id` y
+el estado en `message.kapso.status` — confirmado contra el código en producción de
+Huellas de Paz (`procesarStatusUpdate` en su webhook). `src/lib/standalone/store.ts`
+(`actualizarEstadoMensaje`) busca ese id entre los mensajes guardados (por eso ahora
+también se guarda el `waId` que devuelve Kapso al mandar) y actualiza el tick; el evento
+SSE avisa al navegador para que se vea al instante.
+
+En **DEMO_MODE** no hay ningún Kapso real que mande ese webhook, así que se simula:
+cada mensaje saliente nuevo pasa de `sent` a `delivered` (~1.2s) a `read` (~3.5s)
+automáticamente (`src/lib/demo/store.ts`), disparando el mismo evento SSE — es lo único
+de este punto que es pura puesta en escena, no algo que vaya a pasar igual en producción
+(en producción los tiempos dependen de cuándo el cliente realmente lee el mensaje).
+
+### 19.3 Indicador de "escribiendo…"
+
+**Aclaración importante, porque puede prestarse a confusión:** ni en Huellas de Paz ni
+acá existe un indicador de "el CLIENTE está escribiendo" visible en el inbox — la
+WhatsApp Business Platform no le informa eso al negocio, solo funciona al revés. Lo que
+Huellas de Paz tiene (y ahora esto también) es: cuando el AGENTE empieza a escribir una
+respuesta, el backend le avisa a Meta que le muestre al cliente, en su propio WhatsApp,
+el típico "escribiendo…" — usando la API de `typing_indicator` de Meta, que de paso
+marca como leído el último mensaje entrante.
+
+`src/lib/kapso/client.ts` (`enviarIndicadorEscribiendo`) manda
+`POST {phoneNumberId}/messages` con
+`{ messaging_product, status: 'read', message_id, typing_indicator: { type: 'text' } }`
+— necesita el `waId` del último mensaje ENTRANTE de esa conversación
+(`ultimoMensajeEntranteWaId` en `src/lib/standalone/store.ts`), por eso ahora los
+mensajes entrantes también guardan su `waId` (`message.id`, capturado en
+`parsearMensajeEntrante`). El frontend dispara esto en cada tecla que se escribe en el
+composer, pero limitado a como mucho una vez cada 20s por conversación
+(`src/app/inbox/page.tsx`, mismo throttle que usa Huellas de Paz — el indicador dura
+~25s del lado del cliente). Solo tiene efecto real en `STANDALONE_MODE`; en `DEMO_MODE`
+no hay ningún teléfono real del otro lado, así que la ruta
+`/api/conversaciones/[id]/typing` no hace nada.
+
+### 19.4 Rediseño visual
+
+Se revisó `D:\HuellasDePaz\HuellasDePaz\crm` (su pantalla de inbox) como referencia
+directa tras el segundo pedido de rediseño. Cambios concretos en
+`src/app/inbox/inbox.css`: burbujas salientes con gradiente teal (antes color plano),
+esquina "cola" más marcada (16px con 4px del lado del emisor, igual que WhatsApp real),
+avatares con gradiente en vez de un tinte plano, ítems de conversación con una barra de
+acento a la izquierda cuando están activos/seleccionados, botones y el composer con
+forma de píldora/circulares en vez de rectangulares, y más aire/sombra en general. La
+estructura de 3 columnas (números/lista/hilo) se mantiene tal cual — es una diferencia
+real y necesaria frente a Huellas de Paz (que solo tiene un número), no un descuido de
+diseño.

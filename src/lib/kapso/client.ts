@@ -83,3 +83,30 @@ export async function enviarMediaPorKapso(
 
   return res.json() as Promise<{ messages?: { id: string }[] }>
 }
+
+/**
+ * Manda el indicador de "escribiendo…" al contacto (se ve en su WhatsApp, no en nuestro
+ * inbox — WhatsApp Business no expone al negocio cuándo el CLIENTE está escribiendo, así
+ * que esto solo funciona en un sentido: agente -> cliente). Requiere el id del último
+ * mensaje ENTRANTE de ese contacto. Marca ese mensaje como leído de paso (mismo pedido
+ * que hace Meta). Confirmado contra Huellas de Paz — ver ARCHITECTURE.md §19.
+ */
+export async function enviarIndicadorEscribiendo(numero: NumeroWhatsapp, messageId: string) {
+  const res = await fetch(`${KAPSO_BASE}/${numero.phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': numero.kapsoApiKey,
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: messageId,
+      typing_indicator: { type: 'text' },
+    }),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Kapso ${numero.id} (typing) -> ${res.status}: ${await res.text()}`)
+  }
+}

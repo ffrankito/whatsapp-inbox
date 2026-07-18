@@ -31,6 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const archivo = formData.get('archivo') as File | null
   const numeroId = formData.get('numero') as NumeroId | null
   const contactId = formData.get('contactId') as string | null
+  const caption = (formData.get('caption') as string | null)?.trim() || undefined
   const numero = numeroId ? NUMEROS[numeroId] : undefined
 
   if (!archivo || !numero || !contactId) {
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Esta conversación está asignada a otro agente' }, { status: 423 })
     }
     const url = await comoDataUrl(archivo, mime)
-    const nuevo = agregarMensajeDemo(id, '', 'outbound', { url, tipo, nombre: archivo.name })
+    const nuevo = agregarMensajeDemo(id, caption ?? '', 'outbound', { url, tipo, nombre: archivo.name })
     return NextResponse.json({ ok: true, messageId: nuevo?.id })
   }
 
@@ -62,9 +63,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Esta conversación está asignada a otro agente' }, { status: 423 })
     }
 
+    // El audio no soporta caption en la API de WhatsApp — se manda sin, aunque hayan
+    // escrito algo (se descarta silenciosamente, igual que hace Meta).
+    const captionParaEnviar = tipo === 'audio' ? undefined : caption
+    let waId: string | undefined
     try {
       const mediaId = await subirMediaAKapso(numero, archivo, archivo.name, mime)
-      await enviarMediaPorKapso(numero, conv.phone, mediaId, tipo, { nombre: archivo.name })
+      const data = await enviarMediaPorKapso(numero, conv.phone, mediaId, tipo, { nombre: archivo.name, caption: captionParaEnviar })
+      waId = data.messages?.[0]?.id
     } catch (err) {
       console.error(`[POST /api/conversaciones/${id}/adjunto] error enviando por Kapso:`, err)
       return NextResponse.json({ error: 'No se pudo enviar el archivo' }, { status: 502 })
@@ -73,7 +79,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Para mostrarlo en nuestro propio hilo alcanza con una vista previa local — Kapso
     // no nos devuelve una URL pública propia para lo que nosotros mandamos.
     const url = await comoDataUrl(archivo, mime)
-    const nuevo = agregarMensajeStandalone(id, '', 'outbound', { url, tipo, nombre: archivo.name })
+    const nuevo = agregarMensajeStandalone(id, captionParaEnviar ?? '', 'outbound', { url, tipo, nombre: archivo.name }, { status: 'sent', waId })
     emitirEvento({ tipo: 'mensaje', numero: numero.id })
     return NextResponse.json({ ok: true, messageId: nuevo?.id })
   }

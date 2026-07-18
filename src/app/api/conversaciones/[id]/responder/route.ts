@@ -55,15 +55,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!agente || !puedeEscribir(conv, agente.id)) {
       return NextResponse.json({ error: 'Esta conversación está asignada a otro agente' }, { status: 423 })
     }
+    let waId: string | undefined
     try {
-      await enviarPorKapso(numero, conv.phone, message)
+      const data = await enviarPorKapso(numero, conv.phone, message)
+      waId = data.messages?.[0]?.id
     } catch (err) {
       console.error(`[POST /api/conversaciones/${id}/responder] error enviando por Kapso:`, err)
       return NextResponse.json({ error: 'No se pudo enviar el mensaje' }, { status: 502 })
     }
-    const nuevo = agregarMensajeStandalone(id, message, 'outbound')
+    const nuevo = agregarMensajeStandalone(id, message, 'outbound', undefined, { status: 'sent', waId })
     emitirEvento({ tipo: 'mensaje', numero: numero.id })
-    return NextResponse.json({ conversationId: id, messageId: nuevo?.id, status: 'delivered' })
+    return NextResponse.json({ conversationId: id, messageId: nuevo?.id, status: 'sent' })
   }
 
   const sesion = await sesionActual()

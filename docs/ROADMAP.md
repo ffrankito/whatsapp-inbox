@@ -39,6 +39,10 @@ Objetivo: validar el diseño/UX con algo clickeable, antes de conectar nada real
       con Huellas de Paz — ver ARCHITECTURE.md §17.
 - [x] Asignación/bloqueo entre agentes: tomar/liberar/cerrar una conversación bloquea a
       los demás agentes de responder mientras está tomada — ver ARCHITECTURE.md §18.
+- [x] Paridad con Huellas de Paz (segunda ronda de feedback): adjuntar un archivo con
+      texto (caption) en un solo mensaje como WhatsApp real, tildes de enviado/
+      entregado/leído, indicador de "escribiendo…" hacia el cliente, y rediseño visual
+      tomando su pantalla de inbox como referencia directa — ver ARCHITECTURE.md §19.
 - [ ] Publicarlo en un servidor del data center — alcanza con acceso interno/VPN por
       ahora. Ver `docker-compose.yml` (necesita un `.env.production` con las variables de
       `.env.example` completadas).

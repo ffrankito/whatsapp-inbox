@@ -1,5 +1,5 @@
 import type { NumeroId } from '@/lib/ghl/numeros'
-import type { Adjunto } from '@/lib/mensaje'
+import type { Adjunto, EstadoMensaje } from '@/lib/mensaje'
 import type { EstadoConversacion, Agente } from '@/lib/standalone/store'
 
 export type DemoMensaje = {
@@ -8,6 +8,7 @@ export type DemoMensaje = {
   direction: 'inbound' | 'outbound'
   dateAdded: string
   adjunto?: Adjunto
+  status?: EstadoMensaje
 }
 
 export type DemoConversacion = {
@@ -22,7 +23,14 @@ export type DemoConversacion = {
 }
 
 function msg(id: string, body: string, direction: 'inbound' | 'outbound', minutosAtras: number, adjunto?: Adjunto): DemoMensaje {
-  return { id, body, direction, dateAdded: new Date(Date.now() - minutosAtras * 60_000).toISOString(), adjunto }
+  return {
+    id,
+    body,
+    direction,
+    dateAdded: new Date(Date.now() - minutosAtras * 60_000).toISOString(),
+    adjunto,
+    status: direction === 'outbound' ? 'read' : undefined,
+  }
 }
 
 export const DEMO_SEED: Record<NumeroId, DemoConversacion[]> = {

@@ -19,6 +19,7 @@ type Agente = { id: string; nombre: string }
 type EstadoConversacion = 'sin_asignar' | 'asignada' | 'cerrada'
 type TipoAdjunto = 'image' | 'audio' | 'document' | 'video'
 type Adjunto = { url: string; tipo: TipoAdjunto; nombre?: string }
+type EstadoMensaje = 'sending' | 'sent' | 'delivered' | 'read' | 'failed'
 
 type Conversacion = {
   id: string
@@ -38,6 +39,7 @@ type Mensaje = {
   direction: 'inbound' | 'outbound'
   dateAdded: string
   adjunto?: Adjunto
+  status?: EstadoMensaje
 }
 
 // Tiempo real vía SSE (/api/eventos) — este poll es solo red de seguridad por si se
@@ -52,6 +54,13 @@ function iniciales(nombre: string): string {
   return (partes[0][0] + partes[1][0]).toUpperCase()
 }
 
+function iconoParaMime(mime: string): string {
+  if (mime.startsWith('image/')) return '🖼️'
+  if (mime.startsWith('audio/')) return '🎵'
+  if (mime.startsWith('video/')) return '🎬'
+  return '📄'
+}
+
 export default function InboxPage() {
   const [ssoListo, setSsoListo] = useState(false)
   const [numeroActivo, setNumeroActivo] = useState<NumeroId>('dealers')
@@ -59,8 +68,10 @@ export default function InboxPage() {
   const [seleccionadaId, setSeleccionadaId] = useState<string | null>(null)
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [texto, setTexto] = useState('')
+  const [archivoAdj, setArchivoAdj] = useState<File | null>(null)
   const [nota, setNota] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const ultimoTypingRef = useRef(0)
 
   // ── Identidad del agente (solo hace falta mientras no haya SSO de GHL —
   // ver ARCHITECTURE.md, "Asignación / bloqueo entre agentes") ─────────────
@@ -165,6 +176,8 @@ export default function InboxPage() {
 
   // ── Hilo de la conversación seleccionada: carga inicial + poll de respaldo ─
   useEffect(() => {
+    setTexto('')
+    setArchivoAdj(null)
     if (!seleccionadaId) {
       setMensajes([])
       return
@@ -218,12 +231,15 @@ export default function InboxPage() {
     }
   }
 
-  async function subirArchivo(file: File) {
+  // Igual que WhatsApp: el archivo se sube con un texto opcional a modo de "caption" en
+  // el mismo mensaje, no como dos mensajes separados.
+  async function subirArchivo(file: File, caption: string) {
     if (!seleccionada) return
     const form = new FormData()
     form.append('archivo', file)
     form.append('numero', numeroActivo)
     form.append('contactId', seleccionada.contactId)
+    if (caption.trim()) form.append('caption', caption.trim())
     setEnviando(true)
     try {
       await fetch(`/api/conversaciones/${seleccionada.id}/adjunto`, {
@@ -231,10 +247,36 @@ export default function InboxPage() {
         headers: headersConAgente(),
         body: form,
       })
+      setTexto('')
+      setArchivoAdj(null)
       await cargarMensajes(seleccionada.id)
     } finally {
       setEnviando(false)
     }
+  }
+
+  async function enviar() {
+    if (archivoAdj) {
+      await subirArchivo(archivoAdj, texto)
+    } else if (texto.trim()) {
+      await responder()
+    }
+  }
+
+  // Avisa por WhatsApp que estamos escribiendo (se ve en el celular del contacto, no acá
+  // — WhatsApp Business no informa al negocio cuándo el CLIENTE está escribiendo, solo al
+  // revés). Throttleado a como mucho una vez cada 20s, igual que Huellas de Paz — el
+  // indicador dura unos 25s en el celular del contacto.
+  function avisarEscribiendo() {
+    if (!seleccionada) return
+    const ahora = Date.now()
+    if (ahora - ultimoTypingRef.current < 20_000) return
+    ultimoTypingRef.current = ahora
+    fetch(`/api/conversaciones/${seleccionada.id}/typing`, {
+      method: 'POST',
+      headers: headersConAgente({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ numero: numeroActivo }),
+    }).catch(() => {})
   }
 
   async function guardarNota() {
@@ -399,36 +441,54 @@ export default function InboxPage() {
                   <div key={m.id} className={`s24-bubble ${m.direction === 'inbound' ? 'in' : 'out'}`}>
                     {m.adjunto && <Adjunto adjunto={m.adjunto} />}
                     {m.body && <span className="s24-bubble-text">{m.body}</span>}
-                    <span className="t">{new Date(m.dateAdded).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="t">
+                      {new Date(m.dateAdded).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                      {m.direction === 'outbound' && <Tick status={m.status} />}
+                    </span>
                   </div>
                 ))}
               </div>
 
-              <div className="s24-composer">
-                <label className="s24-attach" data-disabled={String(!puedeEscribir)}>
-                  📎
+              <div className="s24-composer-wrap">
+                {archivoAdj && (
+                  <div className="s24-adjunto-chip">
+                    <span className="ico">{iconoParaMime(archivoAdj.type)}</span>
+                    <span className="nombre">{archivoAdj.name}</span>
+                    <span className="peso">{(archivoAdj.size / 1024).toFixed(0)} KB</span>
+                    <button type="button" className="quitar" onClick={() => setArchivoAdj(null)} aria-label="Quitar archivo">×</button>
+                  </div>
+                )}
+                <div className="s24-composer">
+                  <label className="s24-attach" data-disabled={String(!puedeEscribir)}>
+                    📎
+                    <input
+                      type="file"
+                      hidden
+                      disabled={!puedeEscribir}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) setArchivoAdj(file)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
                   <input
-                    type="file"
-                    hidden
+                    type="text"
+                    placeholder={
+                      archivoAdj ? 'Agregar un mensaje (opcional)…' : puedeEscribir ? 'Escribir una respuesta…' : 'Tomá la conversación para responder'
+                    }
+                    value={texto}
                     disabled={!puedeEscribir}
                     onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) subirArchivo(file)
-                      e.target.value = ''
+                      setTexto(e.target.value)
+                      if (e.target.value) avisarEscribiendo()
                     }}
+                    onKeyDown={(e) => e.key === 'Enter' && enviar()}
                   />
-                </label>
-                <input
-                  type="text"
-                  placeholder={puedeEscribir ? 'Escribir una respuesta…' : 'Tomá la conversación para responder'}
-                  value={texto}
-                  disabled={!puedeEscribir}
-                  onChange={(e) => setTexto(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && responder()}
-                />
-                <button className="s24-btn primary" onClick={responder} disabled={!puedeEscribir || enviando || !texto.trim()}>
-                  Enviar
-                </button>
+                  <button className="s24-btn primary" onClick={enviar} disabled={!puedeEscribir || enviando || (!texto.trim() && !archivoAdj)}>
+                    Enviar
+                  </button>
+                </div>
               </div>
 
               <div className="s24-notes">
@@ -453,6 +513,16 @@ export default function InboxPage() {
       </div>
     </div>
   )
+}
+
+// Mismo criterio que Huellas de Paz: tildes de texto plano (no SVG), coloreadas según el
+// estado que llega por el webhook de estado de Kapso. Ver ARCHITECTURE.md §19.
+function Tick({ status }: { status?: EstadoMensaje }) {
+  if (status === 'read') return <span className="s24-tick read" title="Leído">✓✓</span>
+  if (status === 'delivered') return <span className="s24-tick" title="Entregado">✓✓</span>
+  if (status === 'failed') return <span className="s24-tick failed" title="Error al enviar">✗</span>
+  if (status === 'sending') return <span className="s24-tick" title="Enviando…">🕓</span>
+  return <span className="s24-tick" title="Enviado">✓</span>
 }
 
 function Adjunto({ adjunto }: { adjunto: Adjunto }) {
