@@ -411,19 +411,22 @@ Revisión honesta hecha sobre el código ya escrito. Lo que está bien:
 
 Lo que falta cerrar:
 
-1. **CSRF en `/responder` y `/notas` (prioridad alta).** La cookie de sesión necesita
-   `SameSite=None` para funcionar dentro del iframe de GHL — pero eso mismo habilita que
-   un sitio externo dispare pedidos a estos dos endpoints usando la sesión de un agente
-   logueado, sin que la víctima haga nada más que tener el inbox abierto en otra pestaña.
-   Falta validar que el pedido venga realmente de adentro de GHL (chequeo de `Origin`, o
-   un token anti-CSRF) antes de aceptar una acción que modifica algo.
-2. **Sin rate limiting** en los webhooks — no compromete la firma, pero permite saturar
-   el endpoint con pedidos.
+1. ~~CSRF en `/responder` y `/notas`~~ — **resuelto**: ambos exigen el header
+   `x-s24-inbox` (`src/lib/csrf.ts`), que solo el frontend propio manda — un sitio
+   externo no puede agregar headers custom sin preflight CORS, que no autorizamos.
+   Probado: sin header → 403, con header → funciona.
+2. ~~Sin rate limiting~~ — **resuelto**: `src/lib/rateLimit.ts`, 60 pedidos/minuto por IP
+   en `/api/kapso/webhook` y `/api/ghl/outbound`. Probado con una ráfaga real (pedido 61
+   devolvió 429).
 3. **Sin control de acceso por rol** dentro del inbox — cualquier usuario de GHL con
    acceso al Custom Menu Link ve los 3 números, no hay separación por equipo todavía.
    A confirmar si hace falta.
 4. ~~Dockerfile todavía no escrito~~ — **resuelto**: `Dockerfile` multi-stage sobre
    `node:22-alpine`, corre como usuario `nextjs` sin privilegios, probado localmente
    (build + contenedor levantando + modo demo respondiendo desde adentro).
-5. **`npm audit`** marcó vulnerabilidades moderadas en dependencias, sin revisar
-   todavía en detalle.
+5. ~~`npm audit` sin revisar~~ — **revisado**: las 6 vulnerabilidades moderadas son de
+   herramientas de build/dev (esbuild vía `drizzle-kit`, postcss vía `next`), sin
+   exploit posible en cómo se usan acá — no exponemos el dev-server de esbuild, y no
+   procesamos CSS de terceros. `npm audit fix --force` bajaría Next.js a la v9 y
+   `drizzle-kit` a una versión vieja — **no aplicar**, sería peor que el problema.
+   Revisar de nuevo si en algún momento aparece un fix sin breaking changes.

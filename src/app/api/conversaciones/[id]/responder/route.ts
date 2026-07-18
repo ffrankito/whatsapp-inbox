@@ -6,6 +6,7 @@ import { DEMO_MODE, STANDALONE_MODE } from '@/lib/mode'
 import { agregarMensajeDemo } from '@/lib/demo/store'
 import { obtenerConversacion as obtenerStandalone, agregarMensaje as agregarMensajeStandalone } from '@/lib/standalone/store'
 import { enviarPorKapso } from '@/lib/kapso/client'
+import { pedidoConfiable } from '@/lib/csrf'
 
 type Body = {
   contactId: string
@@ -20,6 +21,11 @@ type Body = {
 // el único lugar que manda de verdad.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+
+  if (!pedidoConfiable(request)) {
+    return NextResponse.json({ error: 'Origen no confiable' }, { status: 403 })
+  }
+
   const { contactId, numero: numeroId, message }: Body = await request.json()
   const numero = NUMEROS[numeroId]
   if (!contactId || !numero || !message?.trim()) {

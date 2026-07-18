@@ -3,14 +3,20 @@ import { sesionActual, locationIdDeSesion } from '@/lib/auth'
 import { crearNota } from '@/lib/ghl/client'
 import { DEMO_MODE, STANDALONE_MODE } from '@/lib/mode'
 import { agregarNotaDemo } from '@/lib/demo/store'
+import { pedidoConfiable } from '@/lib/csrf'
 
 type Body = { contactId: string; body: string }
 
 // Proxy directo a GHL — la nota queda guardada a nivel de contacto en GHL,
 // sin tabla propia (ver ARCHITECTURE.md §6 "Notas / auditoría").
-export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { contactId, body }: Body = await _request.json()
+
+  if (!pedidoConfiable(request)) {
+    return NextResponse.json({ error: 'Origen no confiable' }, { status: 403 })
+  }
+
+  const { contactId, body }: Body = await request.json()
   if (!contactId || !body?.trim()) {
     return NextResponse.json({ error: 'Faltan contactId o body' }, { status: 400 })
   }

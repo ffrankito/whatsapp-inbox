@@ -4,12 +4,17 @@ import { numeroPorPhoneId } from '@/lib/ghl/numeros'
 import { upsertContact, agregarMensajeEntrante } from '@/lib/ghl/client'
 import { STANDALONE_MODE } from '@/lib/mode'
 import { encontrarOCrearConversacion, agregarMensaje } from '@/lib/standalone/store'
+import { webhookLimitado } from '@/lib/rateLimit'
 
 // TODO: reemplazar por la location real una vez definido dónde vive cada instalación
 // (hoy: sandbox de developer, location de test UnDaROg6tyLshlODU22O — ver ARCHITECTURE.md)
 const GHL_LOCATION_ID = process.env.GHL_LOCATION_ID!
 
 export async function POST(request: NextRequest) {
+  if (webhookLimitado(request, 'kapso-webhook')) {
+    return NextResponse.json({ error: 'rate limited' }, { status: 429 })
+  }
+
   const body = await request.text()
   const signature = request.headers.get('x-webhook-signature') ?? ''
   const expected = createHmac('sha256', process.env.KAPSO_APP_SECRET!).update(body).digest('hex')

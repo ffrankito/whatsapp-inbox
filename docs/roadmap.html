@@ -381,9 +381,9 @@
           </p>
         </div>
         <ul class="checklist">
-          <li><span class="box"></span><span class="t">Validar que los pedidos de responder/guardar nota vengan realmente de adentro de GHL</span></li>
-          <li><span class="box"></span><span class="t">Agregar un límite de pedidos por minuto a los webhooks</span></li>
-          <li><span class="box"></span><span class="t">Revisar las vulnerabilidades ya detectadas en las dependencias del proyecto</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Responder/guardar nota validados contra pedidos falsos (CSRF) — probado</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Límite de pedidos por minuto en los webhooks — probado con una ráfaga real</span></li>
+          <li class="checked"><span class="box"></span><span class="t">Vulnerabilidades de dependencias revisadas — son de herramientas de build, sin riesgo real</span></li>
           <li><span class="box"></span><span class="t">Definir si hace falta separar por equipo quién ve cada número</span></li>
           <li class="checked"><span class="box"></span><span class="t">Contenedor Docker reforzado desde el arranque (no corre como root, imagen mínima)</span></li>
           <li><span class="box"></span><span class="t">Confirmar que las notas quedan con autoría clara en GHL</span></li>

@@ -133,7 +133,7 @@ export default function InboxPage() {
     try {
       await fetch(`/api/conversaciones/${seleccionada.id}/responder`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-s24-inbox': '1' },
         body: JSON.stringify({ contactId: seleccionada.contactId, numero: numeroActivo, message: texto }),
       })
       setTexto('')
@@ -146,7 +146,7 @@ export default function InboxPage() {
     if (!seleccionada || !nota.trim()) return
     await fetch(`/api/conversaciones/${seleccionada.id}/notas`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-s24-inbox': '1' },
       body: JSON.stringify({ contactId: seleccionada.contactId, body: nota }),
     })
     setNota('')

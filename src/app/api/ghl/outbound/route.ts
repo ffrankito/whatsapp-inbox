@@ -3,6 +3,7 @@ import { verificarFirmaGhl } from '@/lib/ghl/verifyWebhook'
 import { NUMEROS, type NumeroId } from '@/lib/ghl/numeros'
 import { enviarPorKapso } from '@/lib/kapso/client'
 import { actualizarEstadoMensaje } from '@/lib/ghl/client'
+import { webhookLimitado } from '@/lib/rateLimit'
 
 type OutboundPayload = {
   contactId: string
@@ -18,6 +19,10 @@ type OutboundPayload = {
 // Único lugar del proyecto donde efectivamente se manda un mensaje a Kapso/Meta,
 // sin importar si el agente respondió desde nuestro inbox o desde el nativo de GHL.
 export async function POST(request: NextRequest) {
+  if (webhookLimitado(request, 'ghl-outbound')) {
+    return NextResponse.json({ error: 'rate limited' }, { status: 429 })
+  }
+
   const numeroId = request.nextUrl.searchParams.get('numero') as NumeroId | null
   const numero = numeroId ? NUMEROS[numeroId] : undefined
   if (!numero) {

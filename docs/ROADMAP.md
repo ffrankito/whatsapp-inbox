@@ -93,15 +93,16 @@ bien.
 Se hace acá, antes de que el sistema empiece a manejar datos y acciones reales — no
 después. Ver `docs/ARCHITECTURE.md` §15 para el detalle de cada punto.
 
-- [ ] **Código pendiente, prioridad alta**: agregar validación de origen en
-      `/api/conversaciones/[id]/responder` y `/api/conversaciones/[id]/notas` — hoy son
-      vulnerables a CSRF porque la cookie de sesión usa `SameSite=None` (necesario para
-      el iframe), así que un sitio externo podría disparar acciones usando la sesión de
-      un agente logueado sin que se dé cuenta.
-- [ ] **Código pendiente**: rate limiting básico en `/api/kapso/webhook` y
-      `/api/ghl/outbound`.
-- [ ] Correr `npm audit fix` y revisar las 2 vulnerabilidades moderadas ya detectadas en
-      dependencias.
+- [x] **CSRF resuelto**: `/api/conversaciones/[id]/responder` y `.../notas` exigen un
+      header propio (`x-s24-inbox`) que solo nuestro frontend manda — un sitio externo
+      no puede agregarlo sin disparar un preflight CORS que no autorizamos. Probado:
+      pedido sin el header → 403, con el header → funciona normal.
+- [x] **Rate limiting resuelto**: `/api/kapso/webhook` y `/api/ghl/outbound` cortan en
+      60 pedidos/minuto por IP (`src/lib/rateLimit.ts`). Probado con una ráfaga real: el
+      pedido 61 devolvió 429 como se esperaba.
+- [x] Revisadas las vulnerabilidades moderadas de `npm audit` — son de herramientas de
+      build/dev (esbuild, postcss), sin exploit posible en este proyecto. **No** correr
+      `npm audit fix --force`: bajaría Next.js a la v9. Ver ARCHITECTURE.md §15.
 - [ ] Definir si hace falta separar por rol quién ve qué número (hoy cualquiera con
       acceso al Custom Menu Link ve los 3), o si alcanza con que todo el equipo comercial
       vea todo.
