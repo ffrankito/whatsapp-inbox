@@ -4,9 +4,11 @@
 
 FROM node:22-alpine AS deps
 WORKDIR /app
-# La imagen trae npm 10.x; el lockfile se genera con la versión de npm de quien lo edite
-# (hoy 11.x) — alinear versiones evita falsos "lockfile desincronizado" en npm ci.
-RUN npm install -g npm@11
+# La imagen trae npm 10.x; el lockfile se genera con la versión de npm de quien lo edite.
+# Versiones 11.x distintas resuelven distinto las deps opcionales de WASM (@emnapi/*) y
+# npm ci falla con "lockfile desincronizado" aunque el lock esté bien — por eso se fija
+# la misma versión exacta que usa quien edita el proyecto, no solo el major "11".
+RUN npm install -g npm@11.6.1
 COPY package.json package-lock.json ./
 RUN npm ci
 
