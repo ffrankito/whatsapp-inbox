@@ -971,3 +971,38 @@ Feedback tras la primera imagen real recibida: se veía chica, con margen alrede
   `'sticker'` como tipo de adjunto soportado, renderizado más chico (130×130) y sin el
   tratamiento "sin recuadro" de fotos/videos (los stickers de WhatsApp son
   transparentes, no tienen caption).
+
+## 29. Gotcha de desarrollo: hot-reload de Turbopack puede duplicar el módulo del store en memoria
+
+Detectado mientras se probaba en vivo con el número real: después de editar código
+(`mensaje.ts`, `parseWebhook.ts`) con el dev server corriendo, los webhooks seguían
+devolviendo `200 ok` pero las conversaciones dejaban de aparecer en `/api/conversaciones`
+— ni una nueva, ni las viejas. No era la app del usuario ni un problema de red: el mismo
+`curl` de prueba directo a `localhost:3000` reproducía el problema.
+
+Diagnóstico: el Fast Refresh de Turbopack, al recompilar un módulo compartido
+(`src/lib/mensaje.ts`, importado tanto por la ruta del webhook como por la de
+`/api/conversaciones`), puede terminar generando **dos instancias separadas** del módulo
+`src/lib/standalone/store.ts` — cada ruta con su propio `Map` en memoria. El webhook
+escribe en una instancia, `/api/conversaciones` lee de la otra: por eso el `200 ok` es
+real (no hay ningún error) pero el dato nunca aparece.
+
+**Esto es distinto y más molesto que el reset normal del store** (que ya estaba
+documentado, §14.1 — se resetea al reiniciar el proceso, lo cual es aceptado a
+propósito para esta etapa sin base de datos). Acá el problema no es que se pierda el
+dato: es que dos partes de la misma app dejan de ver el mismo dato entre sí, sin ningún
+error visible.
+
+**Solución:** un reinicio completo del proceso (matar `node.exe` y volver a correr
+`npm run dev`, no alcanza con esperar a que el hot-reload se asiente solo) — esto fuerza
+a Turbopack a reconstruir todo como un único grafo de módulos otra vez. Diagnosticado
+comparando: un webhook simulado, firmado a mano y mandado directo con `curl` a
+`localhost:3000` (sin pasar por Kapso/ngrok), reproducía el mismo síntoma que los
+webhooks reales — lo que confirmó que el problema estaba en el proceso del servidor, no
+en la conexión con Kapso.
+
+**Para la Fase 3 (con Postgres de verdad) esto deja de ser un problema** — el estado ya
+no va a vivir en un `Map` en memoria del proceso. Mientras tanto, en `STANDALONE_MODE`:
+evitar editar código mientras se está probando en vivo con datos reales acumulados, y si
+igual hace falta, reiniciar el proceso entero después (no confiar en que el hot-reload
+solo vaya a mantener todo consistente).
