@@ -750,3 +750,57 @@ revisar todo lo que había quedado pendiente:**
   herramientas de build/dev, sin exploit posible acá) — sin cambios, no se tocan.
 - No se encontraron secretos commiteados: solo `.env.example` está trackeado en git, y
   sus valores están todos vacíos.
+
+## 24. Tres cosas que faltaban en la conexión real con Kapso (coexistencia)
+
+Pedido explícito, comparando contra otro inbox de WhatsApp que ya tiene número real
+conectado hace tiempo: había 3 piezas de la conexión real que acá todavía no existían
+(los ticks y los campos del payload del webhook ya estaban bien, confirmados desde el
+principio contra fuentes reales — ver §16 y §19.2, no hacía falta tocarlos).
+
+### 24.1 Fallback del "escribiendo…" cuando no hay waId guardado
+
+`ultimoMensajeEntranteWaId` solo encuentra el waId si el mensaje se guardó *después* de
+que se empezara a trackear ese campo — una conversación con mensajes viejos, o el primer
+mensaje de una conversación nueva en un instante muy particular, se quedaría sin poder
+mandar el indicador. Se agregó `buscarUltimoMensajeEntranteEnKapso`
+(`src/lib/kapso/client.ts`): si no hay waId local, le pregunta directo a Kapso
+(`GET {phoneNumberId}/messages?direction=inbound&limit=10&since=...`) y busca el mensaje
+cuyo `from`/`kapso.phone_number` termine con el teléfono del contacto. Se usa tanto en
+`/typing` como en el punto siguiente.
+
+### 24.2 Marcar como leído al ABRIR una conversación (no solo al escribir)
+
+Antes, la única forma de marcar un mensaje como leído era `enviarIndicadorEscribiendo`
+(que además dispara el "escribiendo…") — y esa solo se dispara cuando el agente empieza a
+tipear una respuesta. Si un agente abre una conversación para leerla sin necesariamente
+responder al toque, el cliente nunca veía el tilde azul. Se separó en dos:
+`marcarLeido` (`src/lib/kapso/client.ts`) manda `status: 'read'` **sin**
+`typing_indicator`, y se llama automáticamente al seleccionar una conversación
+(`src/app/inbox/page.tsx`, mismo efecto que carga los mensajes del hilo) vía la nueva
+ruta `POST /api/conversaciones/[id]/marcar-leido`. No exige ser el dueño de la
+conversación (a diferencia de responder/notas/adjunto) — es una cortesía de lectura, no
+una acción de escritura sujeta al bloqueo entre agentes (§18).
+
+### 24.3 Mensajes mandados desde el celular (coexistencia real)
+
+Este era el hueco más importante: como el número queda en **coexistencia** (§3.1), el
+equipo puede seguir contestando desde la app de WhatsApp Business del celular en vez de
+desde acá — y antes esos mensajes no aparecían nunca en el inbox propio, dejando el
+historial incompleto para cualquiera que lo mirara desde acá.
+
+Kapso manda el mismo evento `whatsapp.message.sent` tanto para confirmar el estado de un
+mensaje que mandamos nosotros por API, como para avisar de un mensaje saliente que pasó
+por el número por otro medio (el celular) — se distinguen por `message.kapso.direction:
+'outbound'` combinado con que el `waId` **no** coincide con ningún mensaje que ya
+tengamos guardado (`actualizarEstadoMensaje` devuelve `null`). En ese caso
+(`src/app/api/kapso/webhook/route.ts`), en vez de descartarlo se parsea con el mismo
+`parsearMensajeEntrante` que ya usa el mensaje entrante (la forma del objeto `message` es
+la misma esté el mensaje entrando o saliendo), se busca o crea la conversación, y se
+agrega al historial con el body prefijado `[Celular] ` para que el equipo sepa que no
+salió desde el inbox. Probado en vivo con dos webhooks firmados simulados: uno crea la
+conversación, el segundo (mismo teléfono, `direction: outbound`, waId nuevo) agrega el
+mensaje con el prefijo — y un tercero, un `status` update para ESE MISMO waId, actualiza
+el tick sin duplicar el mensaje (confirma que el dedup por waId funciona en los dos
+sentidos: no duplica lo que ya mandamos nosotros, y tampoco duplica lo que capturó del
+celular al llegarle después una confirmación de estado).

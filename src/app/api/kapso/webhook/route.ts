@@ -59,9 +59,24 @@ export async function POST(request: NextRequest) {
         rawStatus === 'read' ? 'read' :
         rawStatus === 'failed' ? 'failed' :
         'sent'
-      if (messageId) {
-        const resultado = actualizarEstadoMensaje(messageId, status)
-        if (resultado) emitirEvento({ tipo: 'mensaje', numero: resultado.numero })
+      const resultado = messageId ? actualizarEstadoMensaje(messageId, status) : null
+      if (resultado) {
+        emitirEvento({ tipo: 'mensaje', numero: resultado.numero })
+      } else if (event === 'whatsapp.message.sent' && payload?.message?.kapso?.direction === 'outbound') {
+        // No es un mensaje que hayamos mandado nosotros (si lo fuera, actualizarEstadoMensaje
+        // lo habría encontrado) — el número está en coexistencia, así que esto es un
+        // mensaje que el equipo mandó directo desde la app de WhatsApp Business del
+        // celular. Se agrega igual al historial (marcado como "[Celular]"), si no el
+        // hilo queda incompleto para quien lo vea desde acá.
+        const saliente = parsearMensajeEntrante(payload)
+        if (saliente) {
+          const numero = numeroPorPhoneId(saliente.phoneNumberId)
+          if (numero) {
+            const conv = encontrarOCrearConversacion(numero.id, saliente.telefono, saliente.nombreContacto)
+            agregarMensaje(conv.id, `[Celular] ${saliente.texto}`, 'outbound', saliente.adjunto, { status: 'sent', waId: saliente.waId })
+            emitirEvento({ tipo: 'mensaje', numero: numero.id })
+          }
+        }
       }
     }
     // TODO (Fase 6): en modo GHL real todavía no se refleja el estado de entrega ahí.

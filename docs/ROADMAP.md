@@ -81,6 +81,11 @@ suelta (no embebida) en esta etapa.
       `whatsapp_config` como se había armado al principio. Ver ARCHITECTURE.md §16.
       Sigue pendiente la confirmación final contra un mensaje real de un número
       conectado de verdad, por si aparece algún caso no cubierto.
+- [x] **Coexistencia completa**: fallback del "escribiendo…" contra la API de Kapso
+      cuando no hay waId guardado, marcar como leído al abrir una conversación (no solo
+      al escribir), y captura de mensajes mandados desde el celular (`[Celular]` +
+      dedup por waId) — ver ARCHITECTURE.md §24. Probado en vivo con webhooks firmados
+      simulados.
 
 **Punto de decisión:** solo se pasa a la Fase 3 (integración con GHL) si esto funciona
 bien.

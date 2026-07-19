@@ -120,13 +120,14 @@ export default function InboxPage() {
     setAgente(nuevo)
   }
 
-  function headersConAgente(extra: Record<string, string> = {}): Record<string, string> {
-    return {
+  const headersConAgente = useCallback(
+    (extra: Record<string, string> = {}): Record<string, string> => ({
       ...extra,
       'x-s24-inbox': '1',
       ...(agente ? { 'x-s24-agente-id': agente.id, 'x-s24-agente-nombre': agente.nombre } : {}),
-    }
-  }
+    }),
+    [agente],
+  )
 
   // ── Handshake SSO con GHL (iframe del Custom Menu Link) ──────────────────
   useEffect(() => {
@@ -235,9 +236,16 @@ export default function InboxPage() {
       return
     }
     cargarMensajes(seleccionadaId)
+    // Aviso de cortesía al cliente (tilde azul) al abrir la conversación — separado del
+    // "escribiendo…" (eso solo se manda cuando el agente tipea, ver avisarEscribiendo).
+    fetch(`/api/conversaciones/${seleccionadaId}/marcar-leido`, {
+      method: 'POST',
+      headers: headersConAgente({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ numero: numeroActivoRef.current }),
+    }).catch(() => {})
     const interval = setInterval(() => cargarMensajes(seleccionadaId), POLL_RESPALDO_MS)
     return () => clearInterval(interval)
-  }, [seleccionadaId, cargarMensajes])
+  }, [seleccionadaId, cargarMensajes, headersConAgente])
 
   // ── Tiempo real: una sola conexión SSE, reacciona a eventos del número activo ─
   useEffect(() => {

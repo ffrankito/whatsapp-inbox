@@ -110,3 +110,49 @@ export async function enviarIndicadorEscribiendo(numero: NumeroWhatsapp, message
     throw new Error(`Kapso ${numero.id} (typing) -> ${res.status}: ${await res.text()}`)
   }
 }
+
+/**
+ * Marca un mensaje entrante como leído (el doble tilde azul del lado del cliente), SIN
+ * el indicador de "escribiendo…" — para cuando el agente simplemente abre la
+ * conversación, no cuando está por responder (eso es `enviarIndicadorEscribiendo`).
+ */
+export async function marcarLeido(numero: NumeroWhatsapp, messageId: string) {
+  const res = await fetch(`${KAPSO_BASE}/${numero.phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': numero.kapsoApiKey,
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: messageId,
+    }),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Kapso ${numero.id} (marcar leído) -> ${res.status}: ${await res.text()}`)
+  }
+}
+
+/**
+ * Fallback para cuando no tenemos guardado el waId del último mensaje entrante de un
+ * contacto (por ejemplo, conversaciones que ya tenían mensajes viejos antes de que se
+ * empezara a guardar el waId) — le pregunta directo a Kapso por los últimos mensajes
+ * entrantes de este número y busca el que coincida con el teléfono del contacto.
+ */
+export async function buscarUltimoMensajeEntranteEnKapso(numero: NumeroWhatsapp, telefono: string): Promise<string | undefined> {
+  const desde = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const url = `${KAPSO_BASE}/${numero.phoneNumberId}/messages?direction=inbound&limit=10&since=${encodeURIComponent(desde)}`
+
+  const res = await fetch(url, { headers: { 'X-API-Key': numero.kapsoApiKey } })
+  if (!res.ok) return undefined
+
+  const { data } = (await res.json()) as { data?: { id: string; from?: string; kapso?: { phone_number?: string } }[] }
+  const normalizado = telefono.replace(/\D/g, '').slice(-10)
+  const match = data?.find((m) => {
+    const desdeNumero = (m.from ?? m.kapso?.phone_number ?? '').replace(/\D/g, '')
+    return desdeNumero.endsWith(normalizado)
+  })
+  return match?.id
+}
