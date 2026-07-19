@@ -32,6 +32,7 @@ type Conversacion = {
   phone?: string
   lastMessageBody?: string
   lastMessageId?: string
+  lastMessageAdjuntoTipo?: TipoAdjunto
   unreadCount?: number
   estado?: EstadoConversacion
   asignadaA?: Agente
@@ -88,6 +89,7 @@ function conversacionesIguales(a: Conversacion[], b: Conversacion[]): boolean {
       c.phone === d.phone &&
       c.lastMessageId === d.lastMessageId &&
       c.lastMessageBody === d.lastMessageBody &&
+      c.lastMessageAdjuntoTipo === d.lastMessageAdjuntoTipo &&
       c.estado === d.estado &&
       c.asignadaA?.id === d.asignadaA?.id &&
       c.asignadaA?.nombre === d.asignadaA?.nombre
@@ -109,6 +111,23 @@ function iconoParaMime(mime: string): string {
   if (mime.startsWith('audio/')) return '🎵'
   if (mime.startsWith('video/')) return '🎬'
   return '📄'
+}
+
+// El backend guarda "[Imagen]"/"[Audio]"/etc. como texto cuando el adjunto no tiene
+// caption (ver parsearMensajeEntrante) — no queremos mostrar eso tal cual, ni en la
+// lista ni en la burbuja, sino un ícono + etiqueta como WhatsApp real.
+function esPlaceholderAdjunto(body?: string): boolean {
+  return !!body && /^\[[^[\]]+\]$/.test(body.trim())
+}
+
+function iconoYEtiquetaAdjunto(tipo: TipoAdjunto): { icono: string; etiqueta: string } {
+  switch (tipo) {
+    case 'image': return { icono: '📷', etiqueta: 'Foto' }
+    case 'video': return { icono: '🎥', etiqueta: 'Video' }
+    case 'audio': return { icono: '🎤', etiqueta: 'Audio' }
+    case 'sticker': return { icono: '😀', etiqueta: 'Sticker' }
+    default: return { icono: '📄', etiqueta: 'Documento' }
+  }
 }
 
 export default function InboxPage() {
@@ -657,7 +676,14 @@ export default function InboxPage() {
                 <span className="s24-avatar">{iniciales(c.fullName || c.contactName || c.phone || '?')}</span>
                 <span className="who">{c.fullName || c.contactName || c.phone || 'Sin nombre'}</span>
               </span>
-              {c.lastMessageBody && <div className="preview">{c.lastMessageBody}</div>}
+              {c.lastMessageAdjuntoTipo ? (
+                <div className="preview">
+                  {iconoYEtiquetaAdjunto(c.lastMessageAdjuntoTipo).icono}{' '}
+                  {esPlaceholderAdjunto(c.lastMessageBody) ? iconoYEtiquetaAdjunto(c.lastMessageAdjuntoTipo).etiqueta : c.lastMessageBody}
+                </div>
+              ) : (
+                c.lastMessageBody && <div className="preview">{c.lastMessageBody}</div>
+              )}
               <div className="chips">
                 {noLeida(c) && <span className="s24-chip unread">Sin leer</span>}
                 {c.estado === 'asignada' && <span className="s24-chip lock">🔒 {c.asignadaA?.nombre}</span>}
@@ -721,6 +747,10 @@ export default function InboxPage() {
               <div className="s24-bubbles">
                 {mensajes.map((m) => {
                   const esMediaVisual = m.adjunto?.tipo === 'image' || m.adjunto?.tipo === 'video' || m.adjunto?.tipo === 'sticker'
+                  // Si el adjunto no tenía caption, el body es solo el placeholder "[Imagen]"/etc
+                  // que ya armamos nosotros — no tiene sentido mostrarlo como si fuera texto del
+                  // mensaje, la imagen/audio/documento ya se está mostrando arriba.
+                  const caption = m.adjunto && esPlaceholderAdjunto(m.body) ? undefined : m.body
                   const horaTick = (
                     <>
                       {new Date(m.dateAdded).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
@@ -734,9 +764,9 @@ export default function InboxPage() {
                       data-media={String(!!esMediaVisual)}
                     >
                       {m.adjunto && <Adjunto adjunto={m.adjunto} onAmpliar={setImagenAmpliada} />}
-                      {esMediaVisual && !m.body && <span className="t sobre-media">{horaTick}</span>}
-                      {m.body && <span className="s24-bubble-text">{m.body}</span>}
-                      {!(esMediaVisual && !m.body) && <span className="t">{horaTick}</span>}
+                      {esMediaVisual && !caption && <span className="t sobre-media">{horaTick}</span>}
+                      {caption && <span className="s24-bubble-text">{caption}</span>}
+                      {!(esMediaVisual && !caption) && <span className="t">{horaTick}</span>}
                     </div>
                   )
                 })}

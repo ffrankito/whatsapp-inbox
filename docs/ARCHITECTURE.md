@@ -1006,3 +1006,22 @@ no va a vivir en un `Map` en memoria del proceso. Mientras tanto, en `STANDALONE
 evitar editar código mientras se está probando en vivo con datos reales acumulados, y si
 igual hace falta, reiniciar el proceso entero después (no confiar en que el hot-reload
 solo vaya a mantener todo consistente).
+
+## 30. Adjuntos sin caption: ícono + etiqueta, no el placeholder en crudo
+
+Feedback: un adjunto sin caption (`"[Imagen]"`, armado en `parsearMensajeEntrante` como
+`texto` de respaldo cuando no hay caption real) se veía tal cual, en crudo, tanto en la
+lista de conversaciones como debajo de la imagen ya renderizada en la burbuja — no como
+WhatsApp real, que muestra un ícono + "Foto"/"Video"/etc.
+
+- **Backend**: `GET /api/conversaciones` ahora manda `lastMessageAdjuntoTipo` (el tipo
+  del adjunto del último mensaje), además del texto.
+- **Lista de conversaciones**: si hay `lastMessageAdjuntoTipo`, se muestra ícono +
+  etiqueta (📷 Foto / 🎥 Video / 🎤 Audio / 😀 Sticker / 📄 Documento) en vez del texto
+  crudo — salvo que el mensaje tenga un caption de verdad, en cuyo caso se muestra
+  ícono + el caption (`src/app/inbox/page.tsx`, `iconoYEtiquetaAdjunto`).
+- **Burbuja del chat**: `esPlaceholderAdjunto()` detecta el patrón `[Texto]` que arma
+  nuestro propio parser cuando no hay caption real, y en ese caso no se muestra el
+  `body` como si fuera un mensaje de texto aparte (ya se está viendo la imagen/audio/
+  documento arriba) — la hora/tilde pasa a superponerse sobre la imagen en vez de
+  quedar una línea de texto redundante debajo.
