@@ -1025,3 +1025,28 @@ WhatsApp real, que muestra un ícono + "Foto"/"Video"/etc.
   `body` como si fuera un mensaje de texto aparte (ya se está viendo la imagen/audio/
   documento arriba) — la hora/tilde pasa a superponerse sobre la imagen en vez de
   quedar una línea de texto redundante debajo.
+
+## 31. Layout de página fija (no "landing" con scroll de página entera)
+
+Feedback: "hay que bajar para ver todo, parece una landing" — y, más grave, un bug real
+que apareció mientras se corregía esto: **al tomar una conversación, el chat
+desaparecía**. Los dos tenían la misma causa raíz.
+
+`body` usaba `min-h-full` (`src/app/layout.tsx`) y `.s24-inbox` usaba `min-height: 100vh`
+(no `height`) — el contenedor podía crecer más alto que la pantalla si el contenido lo
+pedía, y sin un alto fijo en ningún nivel, el navegador terminaba scrolleando la página
+entera en vez de que solo la lista de mensajes scrolleara adentro (el patrón normal de
+una app de chat). Al tomar una conversación aparecen más elementos en pantalla (composer
+habilitado, botones nuevos) — eso empujaba el alto total todavía más.
+
+El bug real apareció a mitad de la corrección: se le puso `overflow-hidden` al `body`
+antes de terminar de fijar el alto del contenedor interno — con el alto todavía sin fijar
+pero el overflow ya oculto, cualquier contenido que se pasara de la pantalla (como al
+tomar una conversación) quedaba **recortado e invisible** en vez de scrolleable. Fix
+completo: `body` pasa a `h-full` (no `min-h-full`) y `.s24-inbox` a `height: 100vh` (no
+`min-height`) — con eso sí, toda la altura queda fija de verdad, y cada panel scrollable
+(`.s24-bubbles`, `.s24-convlist`, `.s24-numbers`) recibe `min-height: 0` explícito en
+cada nivel anidado, el detalle que hace falta para que un hijo `flex:1`/celda de grid
+pueda encogerse por debajo de su contenido en vez de forzar a todo el padre a crecer
+(la regla clásica de "cada nivel de flex/grid anidado necesita su propio `min-height: 0`
+para que el scroll interno funcione").
