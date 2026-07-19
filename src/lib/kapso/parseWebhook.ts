@@ -9,7 +9,7 @@ export type MensajeKapsoEntrante = {
   waId?: string
 }
 
-const TIPOS_MEDIA: TipoAdjunto[] = ['image', 'audio', 'document', 'video']
+const TIPOS_MEDIA: TipoAdjunto[] = ['image', 'audio', 'document', 'video', 'sticker']
 
 /**
  * Parsea un payload de "whatsapp.message.received" (Kapso-kind webhook).
@@ -84,7 +84,7 @@ export function parsearMensajeEntrante(payload: any): MensajeKapsoEntrante | nul
     }
   }
 
-  // Otros tipos (sticker, location, reaction, interactive, etc.) — no soportados todavía.
+  // Otros tipos (location, reaction, interactive, etc.) — no soportados todavía.
   return null
 }
 
@@ -94,6 +94,7 @@ function etiquetaTipo(tipo: string): string {
     case 'audio': return 'Audio'
     case 'document': return 'Documento'
     case 'video': return 'Video'
+    case 'sticker': return 'Sticker'
     default: return tipo
   }
 }

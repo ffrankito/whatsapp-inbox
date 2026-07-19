@@ -20,7 +20,7 @@ const NUMEROS: { id: NumeroId; nombre: string; Icono: () => React.JSX.Element }[
 
 type Agente = { id: string; nombre: string }
 type EstadoConversacion = 'sin_asignar' | 'asignada' | 'cerrada'
-type TipoAdjunto = 'image' | 'audio' | 'document' | 'video'
+type TipoAdjunto = 'image' | 'audio' | 'document' | 'video' | 'sticker'
 type Adjunto = { url: string; tipo: TipoAdjunto; nombre?: string }
 type EstadoMensaje = 'sending' | 'sent' | 'delivered' | 'read' | 'failed'
 
@@ -123,6 +123,7 @@ export default function InboxPage() {
   const [enviando, setEnviando] = useState(false)
   const [agentesConocidos, setAgentesConocidos] = useState<Agente[]>([])
   const [filtroAgenteId, setFiltroAgenteId] = useState('')
+  const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null)
   const ultimoTypingRef = useRef(0)
 
   // ── Grabar y mandar audio (paridad con Huellas de Paz) ───────────────────
@@ -147,6 +148,15 @@ export default function InboxPage() {
   // ver ARCHITECTURE.md, "Asignación / bloqueo entre agentes") ─────────────
   const [agente, setAgente] = useState<Agente | null>(null)
   const [nombreInput, setNombreInput] = useState('')
+
+  useEffect(() => {
+    if (!imagenAmpliada) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setImagenAmpliada(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [imagenAmpliada])
 
   useEffect(() => {
     try {
@@ -709,16 +719,27 @@ export default function InboxPage() {
               )}
 
               <div className="s24-bubbles">
-                {mensajes.map((m) => (
-                  <div key={m.id} className={`s24-bubble ${m.direction === 'inbound' ? 'in' : 'out'}`}>
-                    {m.adjunto && <Adjunto adjunto={m.adjunto} />}
-                    {m.body && <span className="s24-bubble-text">{m.body}</span>}
-                    <span className="t">
+                {mensajes.map((m) => {
+                  const esMediaVisual = m.adjunto?.tipo === 'image' || m.adjunto?.tipo === 'video' || m.adjunto?.tipo === 'sticker'
+                  const horaTick = (
+                    <>
                       {new Date(m.dateAdded).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
                       {m.direction === 'outbound' && <Tick status={m.status} />}
-                    </span>
-                  </div>
-                ))}
+                    </>
+                  )
+                  return (
+                    <div
+                      key={m.id}
+                      className={`s24-bubble ${m.direction === 'inbound' ? 'in' : 'out'}`}
+                      data-media={String(!!esMediaVisual)}
+                    >
+                      {m.adjunto && <Adjunto adjunto={m.adjunto} onAmpliar={setImagenAmpliada} />}
+                      {esMediaVisual && !m.body && <span className="t sobre-media">{horaTick}</span>}
+                      {m.body && <span className="s24-bubble-text">{m.body}</span>}
+                      {!(esMediaVisual && !m.body) && <span className="t">{horaTick}</span>}
+                    </div>
+                  )
+                })}
               </div>
 
               <div className="s24-composer-wrap">
@@ -824,6 +845,15 @@ export default function InboxPage() {
           )}
         </section>
       </div>
+
+      {imagenAmpliada && (
+        <div className="s24-lightbox" onClick={() => setImagenAmpliada(null)}>
+          <button type="button" className="s24-lightbox-cerrar" onClick={() => setImagenAmpliada(null)} aria-label="Cerrar">
+            <IconoX />
+          </button>
+          <img src={imagenAmpliada} alt="Imagen ampliada" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
     </div>
   )
 }
@@ -915,9 +945,19 @@ function Tick({ status }: { status?: EstadoMensaje }) {
   return <span className="s24-tick" title="Enviado">✓</span>
 }
 
-function Adjunto({ adjunto }: { adjunto: Adjunto }) {
+function Adjunto({ adjunto, onAmpliar }: { adjunto: Adjunto; onAmpliar: (url: string) => void }) {
   if (adjunto.tipo === 'image') {
-    return <img className="s24-adjunto-img" src={adjunto.url} alt={adjunto.nombre || 'Imagen'} />
+    return (
+      <img
+        className="s24-adjunto-img"
+        src={adjunto.url}
+        alt={adjunto.nombre || 'Imagen'}
+        onClick={() => onAmpliar(adjunto.url)}
+      />
+    )
+  }
+  if (adjunto.tipo === 'sticker') {
+    return <img className="s24-adjunto-sticker" src={adjunto.url} alt="Sticker" onClick={() => onAmpliar(adjunto.url)} />
   }
   if (adjunto.tipo === 'video') {
     return <video className="s24-adjunto-img" src={adjunto.url} controls />

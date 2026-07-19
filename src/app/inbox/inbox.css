@@ -272,6 +272,16 @@
 }
 .s24-bubble.out .t { opacity: 0.85; }
 
+/* Fotos/videos: sin el padding de la burbuja de texto — que ocupen el ancho entero,
+   como en WhatsApp real, en vez de quedar chicos "flotando" adentro con margen. */
+.s24-bubble[data-media="true"] { padding: 0; overflow: hidden; }
+.s24-bubble[data-media="true"] .s24-bubble-text { display: block; padding: 8px 14px 2px; }
+.s24-bubble[data-media="true"] > .t:not(.sobre-media) { padding: 0 14px 10px; margin-top: 0; }
+.s24-bubble .t.sobre-media {
+  position: absolute; right: 8px; bottom: 8px; margin: 0; padding: 2px 7px;
+  border-radius: 999px; background: rgba(0, 0, 0, 0.45); color: #fff; opacity: 1;
+}
+
 .s24-tick { font-weight: 700; letter-spacing: -1px; }
 .s24-tick.read { color: var(--read-tick); }
 .s24-tick.failed { color: #ffb4a8; letter-spacing: 0; }
@@ -394,13 +404,34 @@
 
 /* ── Adjuntos en las burbujas ─────────────────────────────────────────────── */
 .s24-bubble-text { display: block; }
-.s24-adjunto-img { display: block; max-width: 100%; max-height: 280px; border-radius: 12px; margin-bottom: 5px; }
+.s24-adjunto-img {
+  display: block; width: 100%; min-width: 220px; max-height: 320px;
+  object-fit: cover; cursor: zoom-in;
+}
+.s24-adjunto-sticker {
+  display: block; width: 130px; height: 130px; object-fit: contain; cursor: zoom-in;
+  padding: 6px;
+}
 .s24-adjunto-audio { display: block; width: 230px; max-width: 100%; margin-bottom: 3px; }
 .s24-adjunto-doc {
   display: flex; align-items: center; gap: 9px; padding: 9px 11px; border-radius: 10px;
   background: color-mix(in srgb, currentColor 10%, transparent); text-decoration: none; color: inherit;
   font-size: 12.5px; font-weight: 600; margin-bottom: 3px;
 }
+
+/* ── Lightbox: agrandar una foto a pantalla completa ──────────────────────── */
+.s24-lightbox {
+  position: fixed; inset: 0; z-index: 50; background: rgba(10, 12, 12, 0.92);
+  display: flex; align-items: center; justify-content: center; padding: 32px;
+  cursor: zoom-out;
+}
+.s24-lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; cursor: default; }
+.s24-lightbox-cerrar {
+  all: unset; position: absolute; top: 18px; right: 22px; cursor: pointer;
+  width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.12); color: #fff;
+}
+.s24-lightbox-cerrar:hover { background: rgba(255, 255, 255, 0.22); }
 
 /* ── Botón de adjuntar archivo en el composer ─────────────────────────────── */
 .s24-attach {

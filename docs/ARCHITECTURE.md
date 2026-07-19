@@ -950,3 +950,24 @@ para revisar es si el paso de **escanear el QR** se completó de verdad — Kaps
 mostrar la conexión como "Active"/"Coexistence" sin que eso haya pasado, y la señal más
 clara es el indicador de **"Syncing"** en el panel del número (si no llega a 100%, ahí
 está el problema).
+
+## 28. Fotos como WhatsApp real: sin recuadro, con zoom, y soporte de stickers
+
+Feedback tras la primera imagen real recibida: se veía chica, con margen alrededor
+("como un sticker"), y no se podía agrandar.
+
+- **Sin recuadro:** `.s24-bubble[data-media="true"]` le saca el padding a la burbuja y
+  le pone `overflow: hidden` — la foto/video ahora ocupa el ancho entero de la burbuja
+  (con `object-fit: cover`, tope de 320px de alto) y queda recortada por el propio
+  borde redondeado de la burbuja, en vez de "flotar" con margen adentro. Si el mensaje
+  tiene texto (caption), va debajo con su propio padding; si no tiene, la hora/tilde se
+  superpone sobre la esquina inferior derecha de la imagen (`.t.sobre-media`), como en
+  WhatsApp real, en vez de quedar como una línea aparte.
+- **Zoom:** click en la imagen abre un lightbox a pantalla completa
+  (`src/app/inbox/page.tsx`, estado `imagenAmpliada`) — cierra con click afuera, con el
+  botón X, o con Escape.
+- **Stickers:** hasta ahora `parsearMensajeEntrante` los descartaba en silencio (no
+  estaban en `TIPOS_MEDIA`) — un sticker real nunca llegaba a mostrarse. Se agregó
+  `'sticker'` como tipo de adjunto soportado, renderizado más chico (130×130) y sin el
+  tratamiento "sin recuadro" de fotos/videos (los stickers de WhatsApp son
+  transparentes, no tienen caption).

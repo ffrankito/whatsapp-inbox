@@ -1,5 +1,5 @@
 // Tipo de mensaje compartido entre demo/standalone/GHL — incluye adjuntos multimedia.
-export type TipoAdjunto = 'image' | 'audio' | 'document' | 'video'
+export type TipoAdjunto = 'image' | 'audio' | 'document' | 'video' | 'sticker'
 
 export type Adjunto = {
   url: string
