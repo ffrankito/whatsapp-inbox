@@ -31,6 +31,7 @@ type Conversacion = {
   contactName?: string
   phone?: string
   lastMessageBody?: string
+  lastMessageId?: string
   unreadCount?: number
   estado?: EstadoConversacion
   asignadaA?: Agente
@@ -49,12 +50,51 @@ type Mensaje = {
 // corta la conexión SSE (reinicio del contenedor, deploy). Ver ARCHITECTURE.md §5.1.
 const POLL_RESPALDO_MS = 45_000
 const AGENTE_STORAGE_KEY = 's24_agente'
+const VISTOS_STORAGE_KEY = 's24_vistos'
+
+// Se lee síncrono (no en un useEffect) para que en el primer render ya sepamos qué se
+// vio antes — si no, todo parpadearía como "sin leer" un instante hasta que el efecto
+// corra.
+function leerVistosGuardados(): Record<string, string> {
+  if (typeof window === 'undefined') return {}
+  try {
+    return JSON.parse(localStorage.getItem(VISTOS_STORAGE_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
 
 function iniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/).filter(Boolean)
   if (partes.length === 0) return '?'
   if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase()
   return (partes[0][0] + partes[1][0]).toUpperCase()
+}
+
+// Comparaciones "livianas" para no re-renderizar la lista/hilo cuando el poll trae
+// exactamente lo mismo que ya había — solo miran los campos que afectan lo que se ve.
+function conversacionesIguales(a: Conversacion[], b: Conversacion[]): boolean {
+  if (a === b) return true
+  if (a.length !== b.length) return false
+  return a.every((c, i) => {
+    const d = b[i]
+    return (
+      c.id === d.id &&
+      c.lastMessageId === d.lastMessageId &&
+      c.lastMessageBody === d.lastMessageBody &&
+      c.estado === d.estado &&
+      c.asignadaA?.id === d.asignadaA?.id
+    )
+  })
+}
+
+function mensajesIguales(a: Mensaje[], b: Mensaje[]): boolean {
+  if (a === b) return true
+  if (a.length !== b.length) return false
+  return a.every((m, i) => {
+    const n = b[i]
+    return m.id === n.id && m.status === n.status
+  })
 }
 
 function iconoParaMime(mime: string): string {
@@ -162,6 +202,7 @@ export default function InboxPage() {
   // conversación actuales sin tener que reabrir la conexión en cada cambio.
   const numeroActivoRef = useRef(numeroActivo)
   const seleccionadaIdRef = useRef(seleccionadaId)
+  const conversacionesRef = useRef<Conversacion[]>([])
   useEffect(() => {
     numeroActivoRef.current = numeroActivo
   }, [numeroActivo])
@@ -169,12 +210,40 @@ export default function InboxPage() {
     seleccionadaIdRef.current = seleccionadaId
   }, [seleccionadaId])
 
+  // Qué fue lo último visto por este agente en cada conversación — persiste entre
+  // recargas (localStorage) para que "no leída" sea real y no un número fijo de mentira.
+  // Estado (no ref): así el chip "sin leer" desaparece al toque al abrir la conversación,
+  // no recién en el próximo poll.
+  const [vistos, setVistos] = useState<Record<string, string>>(() => leerVistosGuardados())
+
+  function noLeida(c: Conversacion): boolean {
+    return !!c.lastMessageId && vistos[c.id] !== c.lastMessageId
+  }
+
+  function marcarVista(id: string, lastMessageId: string | undefined) {
+    if (!lastMessageId) return
+    setVistos((prev) => {
+      if (prev[id] === lastMessageId) return prev
+      const next = { ...prev, [id]: lastMessageId }
+      try {
+        localStorage.setItem(VISTOS_STORAGE_KEY, JSON.stringify(next))
+      } catch {
+        // localStorage lleno o no disponible — no es crítico, se vuelve a intentar la próxima vez
+      }
+      return next
+    })
+  }
+
   const cargarConversaciones = useCallback(async () => {
     try {
       const res = await fetch(`/api/conversaciones?numero=${numeroActivoRef.current}`)
       if (!res.ok) return
       const data = await res.json()
-      setConversaciones(data.conversations ?? [])
+      const nuevas: Conversacion[] = data.conversations ?? []
+      conversacionesRef.current = nuevas
+      // Evita re-renderizar todo el árbol (lista + hilo) cuando el poll trae exactamente
+      // lo mismo que ya teníamos — que es la mayoría de las veces.
+      setConversaciones((prev) => (conversacionesIguales(prev, nuevas) ? prev : nuevas))
     } catch {
       // silencioso: el próximo evento/poll de respaldo reintenta
     }
@@ -200,7 +269,9 @@ export default function InboxPage() {
       if (!res.ok) return
       const data = await res.json()
       const lista: Mensaje[] = data?.messages?.messages ?? data?.messages ?? []
-      setMensajes(lista)
+      // Mismo criterio que en cargarConversaciones: no re-renderizar el hilo si el poll
+      // trajo exactamente los mismos mensajes con el mismo estado de tilde.
+      setMensajes((prev) => (mensajesIguales(prev, lista) ? prev : lista))
     } catch {
       // silencioso: el próximo evento/poll de respaldo reintenta
     }
@@ -236,6 +307,7 @@ export default function InboxPage() {
       return
     }
     cargarMensajes(seleccionadaId)
+    marcarVista(seleccionadaId, conversacionesRef.current.find((c) => c.id === seleccionadaId)?.lastMessageId)
     // Aviso de cortesía al cliente (tilde azul) al abrir la conversación — separado del
     // "escribiendo…" (eso solo se manda cuando el agente tipea, ver avisarEscribiendo).
     fetch(`/api/conversaciones/${seleccionadaId}/marcar-leido`, {
@@ -570,7 +642,7 @@ export default function InboxPage() {
               </span>
               {c.lastMessageBody && <div className="preview">{c.lastMessageBody}</div>}
               <div className="chips">
-                {!!c.unreadCount && <span className="s24-chip">{c.unreadCount} sin leer</span>}
+                {noLeida(c) && <span className="s24-chip unread">Sin leer</span>}
                 {c.estado === 'asignada' && <span className="s24-chip lock">🔒 {c.asignadaA?.nombre}</span>}
                 {c.estado === 'cerrada' && <span className="s24-chip closed">Cerrada</span>}
               </div>

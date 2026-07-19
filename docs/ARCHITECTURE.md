@@ -804,3 +804,45 @@ mensaje con el prefijo — y un tercero, un `status` update para ESE MISMO waId,
 el tick sin duplicar el mensaje (confirma que el dedup por waId funciona en los dos
 sentidos: no duplica lo que ya mandamos nosotros, y tampoco duplica lo que capturó del
 celular al llegarle después una confirmación de estado).
+
+## 25. Responsive del header, "no leída" real, y menos re-renders
+
+Últimos 3 puntos de la comparación contra el otro inbox — dos eran mejoras reales, uno
+resultó ser un bug (el "no leída" no funcionaba de verdad).
+
+### 25.1 Responsive
+
+`.s24-thread-head` y `.thread-actions` ahora tienen `flex-wrap` (antes solo lo tenía la
+barra superior) — con varios botones (Tomar/Liberar/Cerrar/Traspasar) más un nombre de
+contacto largo, se podían salir del panel en pantallas medianas. Se agregó también un
+breakpoint intermedio (`max-width: 1200px`) que achica los paneles de números/lista
+(210px/280px → 180px/240px) antes de colapsar del todo a una columna en 860px — pensado
+para cuando esto quede embebido en un panel angosto de GHL.
+
+### 25.2 "No leída" — no funcionaba de verdad, era un número fijo
+
+Hallazgo al revisar esto: el chip de "sin leer" en la lista mostraba `unreadCount`, un
+campo que en `DEMO_MODE` viene fijo del seed (nunca cambia aunque lleguen mensajes
+nuevos) y en `STANDALONE_MODE` estaba **hardcodeado a `0` siempre**
+(`src/app/api/conversaciones/route.ts`) — es decir, en la única conexión real que existe
+hoy, el indicador de "no leída" no funcionaba, nunca. Se reemplazó por algo real:
+
+- El backend ahora manda `lastMessageId` (el id del último mensaje de cada conversación)
+  junto al resto de los datos de la conversación.
+- El frontend guarda, por conversación, cuál fue el último `lastMessageId` que el agente
+  vio (`src/app/inbox/page.tsx`, estado `vistos`) — persistido en `localStorage`
+  (`s24_vistos`) para que sobreviva a un recargado de página, inicializado
+  **síncronamente** con un lazy initializer de `useState` (no en un `useEffect`) para que
+  no haya un parpadeo mostrando todo como "sin leer" el primer instante.
+- Una conversación se marca como vista al abrirla (mismo momento que se llama a
+  `/marcar-leido`, ver §24.2) — como es estado (no un ref), el chip desaparece al toque,
+  no recién en el siguiente poll.
+
+### 25.3 Menos re-renders en el polling
+
+`cargarConversaciones`/`cargarMensajes` corren cada 45s (más cada evento SSE) y antes
+llamaban a `setConversaciones`/`setMensajes` incondicionalmente con un array nuevo,
+disparando un re-render de toda la lista/hilo aunque el contenido fuera idéntico (React
+no compara el contenido de arrays, solo la referencia). Ahora comparan primero
+(`conversacionesIguales`/`mensajesIguales`, campos livianos: id, último mensaje, estado,
+dueño / id+status por mensaje) y solo actualizan el estado si algo realmente cambió.
