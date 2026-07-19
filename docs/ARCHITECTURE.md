@@ -891,3 +891,62 @@ razonables para esta etapa):**
   Los dos son casos de borde razonables de aceptar por ahora — arreglarlos bien
   requeriría escopar el estado por agente, lo cual choca con inicializarlo sin parpadeo
   (el id del agente todavía no se conoce en el primer render).
+
+## 27. Primera conexión real con Kapso — puesta a punto y el problema real que costó destrabar
+
+Primera vez que este proyecto habla con Kapso de verdad (no simulado). Se hizo con un
+número de prueba propio del usuario (no uno de los 3 números reales de Security24
+todavía), en `STANDALONE_MODE`, para no arriesgar nada real mientras se termina de
+validar el circuito completo.
+
+**Infra para probar en local:** como Kapso necesita mandarle el webhook a una URL
+pública, y esto corría en `localhost:3000`, se usó un túnel de **ngrok** (ya estaba
+instalado y configurado en la máquina) apuntando al dev server —
+`https://<subdominio>.ngrok-free.dev/api/kapso/webhook` como Delivery URL en Kapso. Es
+una solución temporal solo para esta prueba; en la Fase 3 esto lo reemplaza el dominio
+real del servidor del data center.
+
+**Problema 1 — número ya vinculado a otra cuenta:** el primer intento de conectar el
+número falló porque ya había quedado registrado de una prueba anterior en otra cuenta.
+Se resolvió sacando el partner viejo de la pestaña "Socios" de la WABA en Meta Business
+Manager, y borrando el número desde el Administrador de WhatsApp
+(`business.facebook.com/settings/whatsapp-business-accounts`) — con solo desvincularlo
+no alcanzaba, había que eliminarlo del todo.
+
+**Problema 2 — el real: el emparejamiento QR nunca se completó.** Con el número ya
+"conectado" en Kapso (`Connection Type: Coexistence`, estado "Active"), no llegaba
+**ningún** webhook de mensajes reales — ni uno solo, ni siquiera fallido (confirmado
+tanto en el log de Kapso como en el inspector de ngrok). Un evento de prueba disparado a
+mano desde Kapso sí llegaba perfecto (200 OK, parseado y guardado bien) — es decir, el
+webhook en sí funcionaba: el problema era que Meta nunca se enteraba de los mensajes
+reales del celular. Se investigó (§26, comparando contra Huellas de Paz vía un agente)
+si había algún workaround de código para esto — no lo hay ni ahí ni acá, porque nunca
+hizo falta: la conclusión fue que tenía que ser un problema de configuración/estado del
+lado de Meta, no de código.
+
+La causa real: la primera vez que se conectó el número, el flujo de Meta **nunca mostró
+el paso de escanear el QR** con la cámara de la app de WhatsApp Business — es decir, el
+celular nunca quedó vinculado de verdad a pesar de que Kapso mostraba la conexión como
+activa. Se resolvió **eliminando el número de Kapso y volviéndolo a conectar desde
+cero** — la segunda vez sí apareció el QR, se escaneó, y el panel de Kapso pasó a
+mostrar "Syncing 100%". A partir de ahí, los mensajes reales (entrantes y salientes
+desde el celular) empezaron a llegar al instante.
+
+**Resultado, probado con tráfico 100% real (no simulado):**
+- Un mensaje entrante real de un contacto ("Q hicite") llegó, se parseó y se guardó
+  bien — `parsearMensajeEntrante` no necesitó ningún ajuste, confirma que las
+  correcciones del payload de Kapso v2 (§16) eran correctas.
+- Un mensaje mandado desde el celular (coexistencia real, no simulada) se capturó
+  correctamente con el prefijo `[Celular]` (§24.3) — primera confirmación real de esa
+  función, hasta ahora solo probada con webhooks simulados.
+- Falta todavía probar: responder desde `/inbox` con la ventana de 24hs ya abierta por
+  el mensaje real de arriba (con la conexión sin sincronizar, esto había fallado con
+  `422 outside the 24-hour window`, esperable porque Meta no había registrado ningún
+  mensaje entrante real todavía).
+
+**Aprendizaje para cuando se conecten los 3 números reales:** si después de conectar un
+número no llega ningún webhook real (aunque un evento de prueba sí llegue), lo primero
+para revisar es si el paso de **escanear el QR** se completó de verdad — Kapso puede
+mostrar la conexión como "Active"/"Coexistence" sin que eso haya pasado, y la señal más
+clara es el indicador de **"Syncing"** en el panel del número (si no llega a 100%, ahí
+está el problema).

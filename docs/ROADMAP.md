@@ -69,18 +69,17 @@ suelta (no embebida) en esta etapa.
       crea la conversación, aparece en `/api/conversaciones`, y el intento de respuesta
       llegó de verdad hasta la API de Kapso (falló solo por credenciales falsas de
       prueba — el error fue un 404 real de Kapso, no un fallo de red/formato).
-- [ ] Conectar **uno de los 3 números por Kapso** (o los 3 de una, si se prefiere ir
-      directo) vía Embedded Signup, confirmando modo coexistencia — esto lo tenés que
-      hacer vos, requiere acceso a Meta Business Manager de Security24.
-- [ ] Con el número real conectado: mandar un WhatsApp de verdad y confirmar que aparece
-      en `/inbox`, responder desde ahí y confirmar que sale de verdad.
-- [x] **Parser del webhook de Kapso corregido con evidencia real** (ya no es una
-      suposición contra la doc): `src/lib/kapso/parseWebhook.ts`, confirmado contra el
-      código en producción de Huellas de Paz y el SDK/reference-app oficial de Kapso —
-      `phone_number_id` va en la raíz o en `conversation.phone_number_id`, nunca en
-      `whatsapp_config` como se había armado al principio. Ver ARCHITECTURE.md §16.
-      Sigue pendiente la confirmación final contra un mensaje real de un número
-      conectado de verdad, por si aparece algún caso no cubierto.
+- [x] **Número de prueba conectado por Kapso** (`S24test`, Instant Setup → se rehízo en
+      modo Coexistence tras un primer intento fallido) y validado con tráfico real —
+      ver ARCHITECTURE.md §27 para el detalle completo de la puesta a punto (túnel
+      ngrok, limpieza de una WABA vieja, y el problema real que costó destrabar).
+- [x] Con el número real conectado: un mensaje real entrante ("Q hicite") apareció
+      correctamente en `/inbox` con nombre de contacto y todo. Falta todavía probar
+      **responder desde `/inbox`** con la ventana de 24hs ya abierta por ese mensaje.
+- [x] **Parser del webhook de Kapso confirmado contra tráfico real** (ya no es una
+      suposición ni algo confirmado solo contra otro proyecto): `src/lib/kapso/parseWebhook.ts`
+      procesó correctamente el payload real de Kapso sin ningún ajuste — teléfono, nombre
+      de contacto y texto salieron bien al primer intento. Ver ARCHITECTURE.md §16 y §27.
 - [x] **Coexistencia completa**: fallback del "escribiendo…" contra la API de Kapso
       cuando no hay waId guardado, marcar como leído al abrir una conversación (no solo
       al escribir), y captura de mensajes mandados desde el celular (`[Celular]` +
