@@ -76,14 +76,21 @@ function iniciales(nombre: string): string {
 function conversacionesIguales(a: Conversacion[], b: Conversacion[]): boolean {
   if (a === b) return true
   if (a.length !== b.length) return false
+  // Tiene que comparar TODO lo que se muestra en la lista — si falta un campo acá, ese
+  // cambio se queda sin reflejarse hasta que cambie algún otro (ej: el nombre real de un
+  // contacto que llega después del primer mensaje, ver encontrarOCrearConversacion).
   return a.every((c, i) => {
     const d = b[i]
     return (
       c.id === d.id &&
+      c.fullName === d.fullName &&
+      c.contactName === d.contactName &&
+      c.phone === d.phone &&
       c.lastMessageId === d.lastMessageId &&
       c.lastMessageBody === d.lastMessageBody &&
       c.estado === d.estado &&
-      c.asignadaA?.id === d.asignadaA?.id
+      c.asignadaA?.id === d.asignadaA?.id &&
+      c.asignadaA?.nombre === d.asignadaA?.nombre
     )
   })
 }

@@ -846,3 +846,48 @@ disparando un re-render de toda la lista/hilo aunque el contenido fuera idéntic
 no compara el contenido de arrays, solo la referencia). Ahora comparan primero
 (`conversacionesIguales`/`mensajesIguales`, campos livianos: id, último mensaje, estado,
 dueño / id+status por mensaje) y solo actualizan el estado si algo realmente cambió.
+
+## 26. Revisión de §24 y §25 — un bug real encontrado y corregido, y límites conocidos sin tocar
+
+Pedido explícito: revisar bien todo lo agregado en §24/§25 antes de darlo por cerrado.
+
+**Bug real encontrado y corregido:** `conversacionesIguales` (§25.3) no comparaba
+`fullName`/`contactName`/`phone`/`asignadaA?.nombre` — solo id, último mensaje, estado y
+el id del dueño. Como `encontrarOCrearConversacion` puede actualizar el `fullName` de una
+conversación cuando llega el nombre real del contacto después del primer mensaje (antes
+se guardaba el teléfono como nombre provisorio), ese cambio se hubiera quedado sin
+reflejarse en la lista hasta que cambiara algún otro campo — es decir, la optimización de
+re-renders de §25.3 rompía silenciosamente la actualización de nombre. Reproducido en
+vivo (mensaje sin nombre → conversación creada con el teléfono como nombre → segundo
+mensaje con `contact_name` real → el campo sí cambia en el backend) y corregido agregando
+los campos que faltaban al comparador.
+
+**Fix chico de consistencia:** la captura de mensajes `[Celular]` (§24.3) no logueaba
+nada si no podía identificar el número — a diferencia del mismo caso para un mensaje
+entrante normal, que sí lo hace. Agregado el mismo `console.error`.
+
+**Límites conocidos, revisados y dejados así a propósito (no son bugs, son trade-offs
+razonables para esta etapa):**
+- `/marcar-leido` no exige identidad de agente (ni dueño de la conversación) — es a
+  propósito, mismo criterio que "ver" una conversación no requiere ser el dueño, solo
+  "escribir" en ella (§18). Sigue bajo el mismo riesgo general de §23: no exponer a
+  internet público antes de la autenticación real de la Fase 6.
+- Ventana de carrera muy chica en la captura `[Celular]`: si el webhook de estado de un
+  mensaje que mandamos nosotros llegara a procesarse antes de que termine nuestro propio
+  `await` a la API de Kapso, se podría capturar por error como "del celular". Requiere un
+  timing casi imposible en la práctica (el webhook de Kapso solo se dispara después de
+  que su propia API ya nos respondió), y aunque pasara, es autocorregible: el próximo
+  evento de estado para ese mismo waId sí lo va a encontrar y actualizar en vez de
+  duplicar.
+- `buscarUltimoMensajeEntranteEnKapso` asume que la API de Kapso devuelve los mensajes
+  más recientes primero — no está confirmado. Si estuviera al revés, el "escribiendo…"/
+  "marcar leído" podría apuntar a un mensaje viejo en vez del último — sin impacto
+  funcional real (el gesto de WhatsApp no depende de que sea literalmente el último).
+- El estado "visto" (§25.2) es por navegador, no por agente — si dos agentes distintos
+  comparten la misma computadora (ej. un puesto compartido), uno puede ver una
+  conversación como "ya leída" porque el otro la abrió antes, aunque él personalmente
+  nunca la haya visto. Tampoco se sincroniza entre pestañas abiertas a la vez del mismo
+  navegador (localStorage no dispara ese aviso dentro de la misma pestaña que escribió).
+  Los dos son casos de borde razonables de aceptar por ahora — arreglarlos bien
+  requeriría escopar el estado por agente, lo cual choca con inicializarlo sin parpadeo
+  (el id del agente todavía no se conoce en el primer render).

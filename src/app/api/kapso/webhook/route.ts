@@ -71,7 +71,9 @@ export async function POST(request: NextRequest) {
         const saliente = parsearMensajeEntrante(payload)
         if (saliente) {
           const numero = numeroPorPhoneId(saliente.phoneNumberId)
-          if (numero) {
+          if (!numero) {
+            console.error('[Kapso webhook] mensaje del celular: no se pudo identificar el número (phone_number_id):', saliente.phoneNumberId)
+          } else {
             const conv = encontrarOCrearConversacion(numero.id, saliente.telefono, saliente.nombreContacto)
             agregarMensaje(conv.id, `[Celular] ${saliente.texto}`, 'outbound', saliente.adjunto, { status: 'sent', waId: saliente.waId })
             emitirEvento({ tipo: 'mensaje', numero: numero.id })
