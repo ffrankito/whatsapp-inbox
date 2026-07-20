@@ -133,15 +133,14 @@ function iconoYEtiquetaAdjunto(tipo: TipoAdjunto): { icono: string; etiqueta: st
 export default function InboxPage() {
   const [ssoListo, setSsoListo] = useState(false)
   const [numeroActivo, setNumeroActivo] = useState<NumeroId>('dealers')
-  // Se guarda la lista etiquetada con el número al que corresponde (no solo el array
-  // suelto) — así, si una respuesta tardía de un número anterior llega después de haber
-  // cambiado de número, el render la descarta solo por no matchear con `numeroActivo`,
-  // sin depender de ningún truco de timing entre efectos ni de limpiar el estado a mano
-  // en el click del botón.
-  const [conversacionesCargadas, setConversacionesCargadas] = useState<{ numero: NumeroId; lista: Conversacion[] } | null>(null)
+  // Un casillero por número, no un solo valor compartido — cada respuesta de
+  // /api/conversaciones escribe únicamente en el casillero del número que pidió, así que
+  // una respuesta tardía de un número que ya no está activo nunca puede pisar los datos
+  // recién cargados de otro número, sin importar en qué orden lleguen las respuestas.
+  const [conversacionesPorNumero, setConversacionesPorNumero] = useState<Partial<Record<NumeroId, Conversacion[]>>>({})
   const conversaciones = useMemo(
-    () => (conversacionesCargadas?.numero === numeroActivo ? conversacionesCargadas.lista : []),
-    [conversacionesCargadas, numeroActivo],
+    () => conversacionesPorNumero[numeroActivo] ?? [],
+    [conversacionesPorNumero, numeroActivo],
   )
   const [seleccionadaId, setSeleccionadaId] = useState<string | null>(null)
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
@@ -291,10 +290,10 @@ export default function InboxPage() {
       const nuevas: Conversacion[] = data.conversations ?? []
       // Evita re-renderizar todo el árbol (lista + hilo) cuando el poll trae exactamente
       // lo mismo que ya teníamos para ese número — que es la mayoría de las veces.
-      setConversacionesCargadas((prev) =>
-        prev?.numero === numeroPedido && conversacionesIguales(prev.lista, nuevas)
+      setConversacionesPorNumero((prev) =>
+        conversacionesIguales(prev[numeroPedido] ?? [], nuevas)
           ? prev
-          : { numero: numeroPedido, lista: nuevas },
+          : { ...prev, [numeroPedido]: nuevas },
       )
     } catch {
       // silencioso: el próximo evento/poll de respaldo reintenta
