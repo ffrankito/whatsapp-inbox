@@ -1,7 +1,7 @@
 # WhatsApp Inbox — Security24 (área comercial)
 
 Inbox de WhatsApp propio, embebido dentro de GoHighLevel vía Custom Menu Link, para los
-3 números (Dealers, Abonados, App Full Control). Ver el diseño completo en
+3 números (Dealers, Abonados, Full App). Ver el diseño completo en
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 Preview visual (maqueta, sin lógica real): [`docs/preview.html`](docs/preview.html).

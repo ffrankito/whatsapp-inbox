@@ -3,7 +3,7 @@
 ## 1. Contexto de negocio
 
 La empresa se dedica a **monitoreo** (alarmas) y tiene tres públicos que le escriben por
-WhatsApp: **dealers**, **abonados**, y usuarios de la **app Full Control** (la app propia
+WhatsApp: **dealers**, **abonados**, y usuarios de **Full App** (la app propia
 de monitoreo de la empresa). Hoy ya operan **3 números de WhatsApp**, uno por público —
 cada uno dedicado a un público fijo, no se mezclan entre números. Los 3
 números siguen usándose activamente desde la **app de WhatsApp Business en el celular** del
@@ -33,7 +33,7 @@ es un proyecto separado, sin GHL, y con un modelo de auth que **no** sirve para 
 ## 2. Objetivos y restricciones
 
 - Los 3 números **no se pueden mezclar** — cada uno mantiene su público (dealer / abonado
-  / usuarios app Full Control) intacto tal como está organizado hoy.
+  / usuarios Full App) intacto tal como está organizado hoy.
 - El inbox tiene que **verse dentro de GHL**, no como pestaña/dominio separado.
 - Los mensajes tienen que quedar **guardados en GHL** (conversación + contacto), para que
   ahí se puedan agregar notas y auditoría por chat en una etapa siguiente.
@@ -276,11 +276,11 @@ WA_ABONADOS_PHONE_ID=
 WA_ABONADOS_API_KEY=
 WA_ABONADOS_PROVIDER_ID=
 
-WA_FULLCONTROL_PHONE_ID=
-WA_FULLCONTROL_API_KEY=
-WA_FULLCONTROL_PROVIDER_ID=
+WA_FULLAPP_PHONE_ID=
+WA_FULLAPP_API_KEY=
+WA_FULLAPP_PROVIDER_ID=
 ```
-(públicos confirmados: dealers, abonados, usuarios de la app Full Control)
+(públicos confirmados: dealers, abonados, usuarios de Full App)
 
 ## 9. Setup manual (antes de poder probar end-to-end)
 
@@ -651,7 +651,7 @@ no reemplaza el directorio de usuarios real que va a dar GHL.
 ## 21. Identidad visual propia por número ("skins")
 
 Feedback explícito: la pantalla se sentía genérica, como cualquier inbox — y Dealers /
-Abonados / App Full Control no son 3 filtros de un mismo canal, son 3 líneas de negocio
+Abonados / Full App no son 3 filtros de un mismo canal, son 3 líneas de negocio
 distintas. Se le dio a cada número su propio color + ícono
 (`src/app/inbox/page.tsx`, array `NUMEROS`), y ese color se propaga a todo lo que se ve
 mientras estás parado en ese número: la fila activa en el nav, la conversación
@@ -660,11 +660,11 @@ seleccionada, las burbujas salientes, el botón de enviar y los avatares.
 - Dealers → ámbar (`#c9852e`), ícono de maletín.
 - Abonados → teal (`#14a79e`, el color de marca por defecto), ícono de escudo (coherente
   con que Security24 es una empresa de monitoreo).
-- App Full Control → violeta (`#6d63c9`), ícono de celular.
+- Full App → violeta (`#6d63c9`), ícono de celular.
 
 **Cómo se implementó (sin duplicar CSS por color):** una sola custom property CSS,
 `--numero-accent` (+ variantes `-dim`/`-tint`), definida en `.s24-inbox` con el teal como
-default. Cualquier elemento marcado con `data-numero="dealers|abonados|fullcontrol"`
+default. Cualquier elemento marcado con `data-numero="dealers|abonados|fullapp"`
 pisa esa variable con el color de ese número — el panel entero (`.s24-console`) lleva el
 atributo seteado al número activo, así que todo lo que hay adentro (lista, hilo,
 burbujas, botón enviar) hereda el color en cascada sin que cada regla tenga que saber

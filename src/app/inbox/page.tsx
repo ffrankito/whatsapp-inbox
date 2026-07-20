@@ -7,7 +7,7 @@ import './inbox.css'
 // tomados del spec OpenAPI oficial pero todavía no se verificaron contra una respuesta
 // real — hacerlo en el primer test end-to-end (ver ARCHITECTURE.md §10).
 
-type NumeroId = 'dealers' | 'abonados' | 'fullcontrol'
+type NumeroId = 'dealers' | 'abonados' | 'fullapp'
 
 // Cada número tiene su propia identidad visual (color + ícono) — son 3 líneas de
 // negocio distintas (dealers/abonados/app), no una lista de filtros genérica, así que
@@ -15,7 +15,7 @@ type NumeroId = 'dealers' | 'abonados' | 'fullcontrol'
 const NUMEROS: { id: NumeroId; nombre: string; Icono: () => React.JSX.Element }[] = [
   { id: 'dealers', nombre: 'Dealers', Icono: IconoDealers },
   { id: 'abonados', nombre: 'Abonados', Icono: IconoAbonados },
-  { id: 'fullcontrol', nombre: 'App Full Control', Icono: IconoApp },
+  { id: 'fullapp', nombre: 'Full App', Icono: IconoApp },
 ]
 
 type Agente = { id: string; nombre: string }

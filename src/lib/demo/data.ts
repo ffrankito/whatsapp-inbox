@@ -110,11 +110,11 @@ export const DEMO_SEED: Record<NumeroId, DemoConversacion[]> = {
       ],
     },
   ],
-  fullcontrol: [
+  fullapp: [
     {
       id: 'demo-f1',
       contactId: 'demo-contact-f1',
-      fullName: 'Carlos Medina — App Full Control',
+      fullName: 'Carlos Medina — Full App',
       phone: '+54 341 677-9021',
       unreadCount: 1,
       estado: 'sin_asignar',
@@ -129,7 +129,7 @@ export const DEMO_SEED: Record<NumeroId, DemoConversacion[]> = {
     {
       id: 'demo-f2',
       contactId: 'demo-contact-f2',
-      fullName: 'Estudio Contable SRL — App Full Control',
+      fullName: 'Estudio Contable SRL — Full App',
       phone: '+54 341 455-8890',
       unreadCount: 0,
       estado: 'cerrada',

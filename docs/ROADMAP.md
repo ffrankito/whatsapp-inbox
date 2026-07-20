@@ -24,7 +24,7 @@ Objetivo: validar el diseño/UX con algo clickeable, antes de conectar nada real
 
 - [x] "Modo demo" — con `DEMO_MODE=true`, las rutas `/api/conversaciones` y
       `/api/conversaciones/[id]` devuelven datos de ejemplo fijos (mismo contenido de
-      `docs/preview.html`: Dealers/Abonados/Full Control con conversaciones de muestra)
+      `docs/preview.html`: Dealers/Abonados/Full App con conversaciones de muestra)
       en vez de llamar a GHL. Probado end-to-end (`src/lib/demo/`).
 - [x] En modo demo, "Enviar" y "Guardar nota" actualizan el estado en memoria del
       servidor — sin mandar nada real a ningún lado.
@@ -113,7 +113,7 @@ bien.
 
 - [ ] Confirmar que los scopes de **Contacts** (readonly + write) quedaron tildados y
       guardados.
-- [ ] Crear los **3 Conversation Providers** (Dealers / Abonados / App Full Control),
+- [ ] Crear los **3 Conversation Providers** (Dealers / Abonados / Full App),
       cada uno con su Delivery URL: `https://<dominio>/api/ghl/outbound?numero=<id>` →
       guardar los 3 `conversationProviderId` en `.env.local`.
 - [ ] Crear el **Custom Menu Link** (`openMode: iframe`, url = `https://<dominio>/inbox`).
@@ -163,7 +163,7 @@ después. Ver `docs/ARCHITECTURE.md` §15 para el detalle de cada punto.
 - [ ] Instalar la misma Marketplace App sobre la location real (`QEmYqBPWjjngZgBXZfTf`).
 - [ ] Repetir la configuración de Kapso/Delivery URLs para los números reales si son
       distintos de los usados en sandbox.
-- [ ] Prueba de humo final con tráfico real de dealers/abonados/Full Control.
+- [ ] Prueba de humo final con tráfico real de dealers/abonados/Full App.
 
 ## Fase 8 — Después del lanzamiento (no bloqueante)
 

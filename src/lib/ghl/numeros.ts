@@ -1,4 +1,4 @@
-export type NumeroId = 'dealers' | 'abonados' | 'fullcontrol'
+export type NumeroId = 'dealers' | 'abonados' | 'fullapp'
 
 export type NumeroWhatsapp = {
   id: NumeroId
@@ -21,7 +21,7 @@ function numero(id: NumeroId, nombre: string, envPrefix: string): NumeroWhatsapp
 export const NUMEROS: Record<NumeroId, NumeroWhatsapp> = {
   dealers: numero('dealers', 'Dealers', 'WA_DEALERS'),
   abonados: numero('abonados', 'Abonados', 'WA_ABONADOS'),
-  fullcontrol: numero('fullcontrol', 'App Full Control', 'WA_FULLCONTROL'),
+  fullapp: numero('fullapp', 'Full App', 'WA_FULLAPP'),
 }
 
 export function numeroPorPhoneId(phoneNumberId: string): NumeroWhatsapp | undefined {
