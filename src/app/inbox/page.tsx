@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './inbox.css'
 
 // NOTA: los nombres de campo de GHL (ConversationSchema / GetMessageResponseDto) están
@@ -133,7 +133,16 @@ function iconoYEtiquetaAdjunto(tipo: TipoAdjunto): { icono: string; etiqueta: st
 export default function InboxPage() {
   const [ssoListo, setSsoListo] = useState(false)
   const [numeroActivo, setNumeroActivo] = useState<NumeroId>('dealers')
-  const [conversaciones, setConversaciones] = useState<Conversacion[]>([])
+  // Se guarda la lista etiquetada con el número al que corresponde (no solo el array
+  // suelto) — así, si una respuesta tardía de un número anterior llega después de haber
+  // cambiado de número, el render la descarta solo por no matchear con `numeroActivo`,
+  // sin depender de ningún truco de timing entre efectos ni de limpiar el estado a mano
+  // en el click del botón.
+  const [conversacionesCargadas, setConversacionesCargadas] = useState<{ numero: NumeroId; lista: Conversacion[] } | null>(null)
+  const conversaciones = useMemo(
+    () => (conversacionesCargadas?.numero === numeroActivo ? conversacionesCargadas.lista : []),
+    [conversacionesCargadas, numeroActivo],
+  )
   const [seleccionadaId, setSeleccionadaId] = useState<string | null>(null)
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [texto, setTexto] = useState('')
@@ -243,6 +252,9 @@ export default function InboxPage() {
     numeroActivoRef.current = numeroActivo
   }, [numeroActivo])
   useEffect(() => {
+    conversacionesRef.current = conversaciones
+  }, [conversaciones])
+  useEffect(() => {
     seleccionadaIdRef.current = seleccionadaId
   }, [seleccionadaId])
 
@@ -276,15 +288,14 @@ export default function InboxPage() {
       const res = await fetch(`/api/conversaciones?numero=${numeroPedido}`)
       if (!res.ok) return
       const data = await res.json()
-      // Si mientras esperábamos la respuesta el usuario ya cambió de número, esto es una
-      // respuesta vieja para un número que ya no está activo — aplicarla pisaría la lista
-      // recién limpiada con datos del número anterior.
-      if (numeroActivoRef.current !== numeroPedido) return
       const nuevas: Conversacion[] = data.conversations ?? []
-      conversacionesRef.current = nuevas
       // Evita re-renderizar todo el árbol (lista + hilo) cuando el poll trae exactamente
-      // lo mismo que ya teníamos — que es la mayoría de las veces.
-      setConversaciones((prev) => (conversacionesIguales(prev, nuevas) ? prev : nuevas))
+      // lo mismo que ya teníamos para ese número — que es la mayoría de las veces.
+      setConversacionesCargadas((prev) =>
+        prev?.numero === numeroPedido && conversacionesIguales(prev.lista, nuevas)
+          ? prev
+          : { numero: numeroPedido, lista: nuevas },
+      )
     } catch {
       // silencioso: el próximo evento/poll de respaldo reintenta
     }
@@ -638,9 +649,6 @@ export default function InboxPage() {
                 if (n.id === numeroActivo) return
                 setNumeroActivo(n.id)
                 setSeleccionadaId(null)
-                // Si no se limpia acá, mientras se espera la respuesta del nuevo número
-                // queda un instante mostrando las conversaciones del número anterior.
-                setConversaciones([])
               }}
             >
               <span className="row1">
