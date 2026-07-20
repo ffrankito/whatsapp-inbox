@@ -41,7 +41,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   if (STANDALONE_MODE) {
-    const resultado = traspasarConversacion(id, agente.id, destino)
+    const resultado = await traspasarConversacion(id, agente.id, destino)
     if (!resultado.ok) {
       return NextResponse.json({ error: 'No se pudo traspasar' }, { status: resultado.motivo === 'no_existe' ? 404 : 423 })
     }

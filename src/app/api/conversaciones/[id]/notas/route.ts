@@ -40,7 +40,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   if (STANDALONE_MODE) {
-    const conv = obtenerStandalone(id)
+    const conv = await obtenerStandalone(id)
     if (!conv) return NextResponse.json({ error: 'No existe esa conversación' }, { status: 404 })
     if (!agente || !puedeEscribir(conv, agente.id)) {
       return NextResponse.json({ error: 'Esta conversación está asignada a otro agente' }, { status: 423 })

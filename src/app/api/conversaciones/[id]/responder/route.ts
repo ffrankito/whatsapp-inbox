@@ -54,7 +54,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   if (STANDALONE_MODE) {
-    const conv = obtenerStandalone(id)
+    const conv = await obtenerStandalone(id)
     if (!conv) return NextResponse.json({ error: 'No existe esa conversación' }, { status: 404 })
     if (!agente || !puedeEscribir(conv, agente.id)) {
       return NextResponse.json({ error: 'Esta conversación está asignada a otro agente' }, { status: 423 })
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       console.error(`[POST /api/conversaciones/${id}/responder] error enviando por Kapso:`, err)
       return NextResponse.json({ error: 'No se pudo enviar el mensaje' }, { status: 502 })
     }
-    const nuevo = agregarMensajeStandalone(id, message, 'outbound', undefined, { status: 'sent', waId })
+    const nuevo = await agregarMensajeStandalone(id, message, 'outbound', undefined, { status: 'sent', waId })
     emitirEvento({ tipo: 'mensaje', numero: numero.id })
     return NextResponse.json({ conversationId: id, messageId: nuevo?.id, status: 'sent' })
   }

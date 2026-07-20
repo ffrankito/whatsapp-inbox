@@ -69,7 +69,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   if (STANDALONE_MODE) {
-    const conv = obtenerStandalone(id)
+    const conv = await obtenerStandalone(id)
     if (!conv) return NextResponse.json({ error: 'No existe esa conversación' }, { status: 404 })
     if (!agente || !puedeEscribir(conv, agente.id)) {
       return NextResponse.json({ error: 'Esta conversación está asignada a otro agente' }, { status: 423 })
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Para mostrarlo en nuestro propio hilo alcanza con una vista previa local — Kapso
     // no nos devuelve una URL pública propia para lo que nosotros mandamos.
     const url = await comoDataUrl(archivo, mime)
-    const nuevo = agregarMensajeStandalone(id, captionParaEnviar ?? '', 'outbound', { url, tipo, nombre: archivo.name }, { status: 'sent', waId })
+    const nuevo = await agregarMensajeStandalone(id, captionParaEnviar ?? '', 'outbound', { url, tipo, nombre: archivo.name }, { status: 'sent', waId })
     emitirEvento({ tipo: 'mensaje', numero: numero.id })
     return NextResponse.json({ ok: true, messageId: nuevo?.id })
   }

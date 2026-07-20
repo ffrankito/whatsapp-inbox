@@ -72,7 +72,7 @@ async function refreshInstall(install: GhlInstall) {
 async function guardarInstall(locationId: string, accessToken: string, refreshToken: string, expiresInSeconds: number) {
   const expiresAt = new Date(Date.now() + expiresInSeconds * 1000)
 
-  await db
+  await db()
     .insert(ghlInstalls)
     .values({ locationId, accessToken, refreshToken, expiresAt })
     .onConflictDoUpdate({
@@ -84,7 +84,7 @@ async function guardarInstall(locationId: string, accessToken: string, refreshTo
 const REFRESH_BUFFER_MS = 5 * 60 * 1000 // refrescar si faltan menos de 5 min
 
 async function getValidAccessToken(locationId: string): Promise<string> {
-  const install = await db.query.ghlInstalls.findFirst({
+  const install = await db().query.ghlInstalls.findFirst({
     where: eq(ghlInstalls.locationId, locationId),
   })
   if (!install) throw new Error(`No hay instalación de GHL guardada para la location ${locationId}`)

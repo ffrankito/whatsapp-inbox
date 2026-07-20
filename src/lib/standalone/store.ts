@@ -1,10 +1,14 @@
+import { randomUUID } from 'node:crypto'
+import { and, desc, eq, ne, or } from 'drizzle-orm'
+import { db } from '@/db'
+import { conversacionesStandalone, mensajesStandalone } from '@/db/schema'
 import type { NumeroId } from '@/lib/ghl/numeros'
 import type { Adjunto, EstadoMensaje } from '@/lib/mensaje'
 
-// Fase 2 del roadmap: Kapso real conectado, pero todavía sin GHL — se guarda en memoria
-// nomás. No hace falta persistencia acá: como el número queda en coexistencia, el
-// historial real del mensaje sigue viviendo en la app de WhatsApp del celular igual
-// (ver ARCHITECTURE.md §14.2). Esto se descarta en la Fase 6.
+// Fase 2 del roadmap: Kapso real conectado, pero todavía sin GHL. Guardado en Postgres
+// (adelantado desde la Fase 3 porque las pruebas en vivo lo necesitaban — ver
+// ARCHITECTURE.md §32) en vez de en memoria del proceso, así no se pierde con cada
+// redeploy/reinicio. Se descarta en la Fase 6, cuando GHL pasa a ser la fuente de verdad.
 
 export type Agente = { id: string; nombre: string }
 export type EstadoConversacion = 'sin_asignar' | 'asignada' | 'cerrada'
@@ -30,79 +34,146 @@ export type StandaloneConversacion = {
   asignadaA?: Agente
 }
 
-const conversaciones = new Map<string, StandaloneConversacion>()
-let contador = 0
-
-function nuevoId(prefijo: string) {
-  contador += 1
-  return `${prefijo}-${Date.now()}-${contador}`
+// Resumen liviano para la lista — no trae todos los mensajes, solo el último (lo único
+// que se muestra ahí), para no traer de la base más de lo que hace falta.
+export type StandaloneConversacionResumen = Omit<StandaloneConversacion, 'mensajes'> & {
+  ultimoMensaje?: StandaloneMensaje
 }
 
 function idParaTelefono(numero: NumeroId, phone: string) {
   return `standalone-${numero}-${phone.replace(/\D/g, '')}`
 }
 
-export function listarConversaciones(numero: NumeroId): StandaloneConversacion[] {
-  return [...conversaciones.values()]
-    .filter((c) => c.numero === numero)
-    .sort((a, b) => (b.mensajes.at(-1)?.dateAdded ?? '').localeCompare(a.mensajes.at(-1)?.dateAdded ?? ''))
+function aAgente(id: string | null, nombre: string | null): Agente | undefined {
+  return id && nombre ? { id, nombre } : undefined
 }
 
-export function obtenerConversacion(id: string): StandaloneConversacion | undefined {
-  return conversaciones.get(id)
-}
-
-export function encontrarOCrearConversacion(numero: NumeroId, phone: string, nombre?: string): StandaloneConversacion {
-  const id = idParaTelefono(numero, phone)
-  let conv = conversaciones.get(id)
-  if (!conv) {
-    conv = { id, numero, contactId: id, phone, fullName: nombre ?? phone, mensajes: [], estado: 'sin_asignar' }
-    conversaciones.set(id, conv)
-  } else if (nombre && conv.fullName === conv.phone) {
-    conv.fullName = nombre
+function aStandaloneMensaje(row: typeof mensajesStandalone.$inferSelect): StandaloneMensaje {
+  return {
+    id: row.id,
+    body: row.body,
+    direction: row.direction as 'inbound' | 'outbound',
+    dateAdded: row.dateAdded.toISOString(),
+    adjunto: (row.adjunto as Adjunto | null) ?? undefined,
+    status: (row.status as EstadoMensaje | null) ?? undefined,
+    waId: row.waId ?? undefined,
   }
-  return conv
 }
 
-export function agregarMensaje(
+function aConversacionBase(row: typeof conversacionesStandalone.$inferSelect): Omit<StandaloneConversacion, 'mensajes'> {
+  return {
+    id: row.id,
+    numero: row.numero as NumeroId,
+    contactId: row.contactId,
+    phone: row.phone,
+    fullName: row.fullName,
+    estado: row.estado as EstadoConversacion,
+    asignadaA: aAgente(row.asignadaAId, row.asignadaANombre),
+  }
+}
+
+export async function listarConversaciones(numero: NumeroId): Promise<StandaloneConversacionResumen[]> {
+  const filas = await db()
+    .select()
+    .from(conversacionesStandalone)
+    .where(eq(conversacionesStandalone.numero, numero))
+    .orderBy(desc(conversacionesStandalone.actualizadoEn))
+
+  return Promise.all(
+    filas.map(async (fila) => {
+      const [ultimo] = await db()
+        .select()
+        .from(mensajesStandalone)
+        .where(eq(mensajesStandalone.conversacionId, fila.id))
+        .orderBy(desc(mensajesStandalone.dateAdded))
+        .limit(1)
+      return { ...aConversacionBase(fila), ultimoMensaje: ultimo ? aStandaloneMensaje(ultimo) : undefined }
+    }),
+  )
+}
+
+export async function obtenerConversacion(id: string): Promise<StandaloneConversacion | undefined> {
+  const [fila] = await db().select().from(conversacionesStandalone).where(eq(conversacionesStandalone.id, id))
+  if (!fila) return undefined
+  const mensajes = await db()
+    .select()
+    .from(mensajesStandalone)
+    .where(eq(mensajesStandalone.conversacionId, id))
+    .orderBy(mensajesStandalone.dateAdded)
+  return { ...aConversacionBase(fila), mensajes: mensajes.map(aStandaloneMensaje) }
+}
+
+export async function encontrarOCrearConversacion(numero: NumeroId, phone: string, nombre?: string): Promise<StandaloneConversacion> {
+  const id = idParaTelefono(numero, phone)
+  const [existente] = await db().select().from(conversacionesStandalone).where(eq(conversacionesStandalone.id, id))
+
+  if (!existente) {
+    const nueva = {
+      id,
+      numero,
+      contactId: id,
+      phone,
+      fullName: nombre ?? phone,
+      estado: 'sin_asignar' as const,
+    }
+    await db().insert(conversacionesStandalone).values(nueva)
+    return { ...nueva, mensajes: [] }
+  }
+
+  // Si antes no teníamos el nombre real del contacto (se guardó el teléfono como
+  // provisorio) y ahora llegó uno, se actualiza.
+  if (nombre && existente.fullName === existente.phone) {
+    await db().update(conversacionesStandalone).set({ fullName: nombre }).where(eq(conversacionesStandalone.id, id))
+    existente.fullName = nombre
+  }
+  // No se cargan los mensajes acá a propósito — quien llama a esta función (el webhook)
+  // solo necesita el `id`; usar obtenerConversacion() si hace falta el hilo completo.
+  return { ...aConversacionBase(existente), mensajes: [] }
+}
+
+export async function agregarMensaje(
   conversationId: string,
   body: string,
   direction: 'inbound' | 'outbound',
   adjunto?: Adjunto,
   opts: { status?: EstadoMensaje; waId?: string } = {},
-) {
-  const conv = conversaciones.get(conversationId)
+): Promise<StandaloneMensaje | null> {
+  const [conv] = await db().select({ id: conversacionesStandalone.id }).from(conversacionesStandalone).where(eq(conversacionesStandalone.id, conversationId))
   if (!conv) return null
-  const nuevo: StandaloneMensaje = {
-    id: nuevoId('standalone-msg'),
+
+  const nuevo = {
+    id: randomUUID(),
+    conversacionId: conversationId,
     body,
     direction,
-    dateAdded: new Date().toISOString(),
-    adjunto,
-    status: direction === 'outbound' ? (opts.status ?? 'sent') : undefined,
-    waId: opts.waId,
+    adjunto: adjunto ?? null,
+    status: direction === 'outbound' ? (opts.status ?? 'sent') : null,
+    waId: opts.waId ?? null,
   }
-  conv.mensajes.push(nuevo)
-  return nuevo
+  const [insertado] = await db().insert(mensajesStandalone).values(nuevo).returning()
+  await db().update(conversacionesStandalone).set({ actualizadoEn: new Date() }).where(eq(conversacionesStandalone.id, conversationId))
+  return aStandaloneMensaje(insertado)
 }
 
 // Cruza el `waId` que devuelve un webhook de estado de Kapso (`message.id`) contra los
 // mensajes salientes guardados, para actualizar el tick de "enviado/entregado/leído"
 // (ver ARCHITECTURE.md §19). Devuelve el número (canal) al que pertenece, para poder
 // emitir el evento SSE con el scope correcto.
-export function actualizarEstadoMensaje(waId: string, status: EstadoMensaje): { numero: NumeroId } | null {
-  for (const conv of conversaciones.values()) {
-    const msg = conv.mensajes.find((m) => m.waId === waId)
-    if (msg) {
-      msg.status = status
-      return { numero: conv.numero }
-    }
-  }
-  return null
+export async function actualizarEstadoMensaje(waId: string, status: EstadoMensaje): Promise<{ numero: NumeroId } | null> {
+  const [actualizado] = await db()
+    .update(mensajesStandalone)
+    .set({ status })
+    .where(eq(mensajesStandalone.waId, waId))
+    .returning({ conversacionId: mensajesStandalone.conversacionId })
+  if (!actualizado) return null
+
+  const [conv] = await db().select({ numero: conversacionesStandalone.numero }).from(conversacionesStandalone).where(eq(conversacionesStandalone.id, actualizado.conversacionId))
+  return conv ? { numero: conv.numero as NumeroId } : null
 }
 
 // Para el indicador de "escribiendo…": Meta requiere el id del último mensaje ENTRANTE
 // para poder mostrarle a ese contacto que le estamos por responder (ver ARCHITECTURE.md §19).
+// Pura — opera sobre una conversación ya cargada con obtenerConversacion(), no pega contra la base.
 export function ultimoMensajeEntranteWaId(conv: StandaloneConversacion): string | undefined {
   for (let i = conv.mensajes.length - 1; i >= 0; i--) {
     const m = conv.mensajes[i]
@@ -125,34 +196,45 @@ export function puedeEscribir(conv: StandaloneConversacion, agenteId: string): b
   return conv.asignadaA?.id === agenteId
 }
 
-export function asignarConversacion(id: string, agente: Agente): ResultadoAsignacion {
-  const conv = conversaciones.get(id)
-  if (!conv) return { ok: false, motivo: 'no_existe' }
-  if (conv.estado === 'cerrada') return { ok: false, motivo: 'cerrada' }
-  if (conv.estado === 'asignada' && conv.asignadaA?.id !== agente.id) {
-    return { ok: false, motivo: 'ya_asignada', asignadaA: conv.asignadaA }
-  }
-  conv.estado = 'asignada'
-  conv.asignadaA = agente
-  return { ok: true }
+export async function asignarConversacion(id: string, agente: Agente): Promise<ResultadoAsignacion> {
+  const [actualizado] = await db()
+    .update(conversacionesStandalone)
+    .set({ estado: 'asignada', asignadaAId: agente.id, asignadaANombre: agente.nombre, actualizadoEn: new Date() })
+    .where(
+      and(
+        eq(conversacionesStandalone.id, id),
+        ne(conversacionesStandalone.estado, 'cerrada'),
+        or(ne(conversacionesStandalone.estado, 'asignada'), eq(conversacionesStandalone.asignadaAId, agente.id)),
+      ),
+    )
+    .returning()
+  if (actualizado) return { ok: true }
+
+  const [actual] = await db().select().from(conversacionesStandalone).where(eq(conversacionesStandalone.id, id))
+  if (!actual) return { ok: false, motivo: 'no_existe' }
+  if (actual.estado === 'cerrada') return { ok: false, motivo: 'cerrada' }
+  return { ok: false, motivo: 'ya_asignada', asignadaA: aAgente(actual.asignadaAId, actual.asignadaANombre) }
 }
 
 // Solo el dueño actual puede liberar/cerrar — antes esto lo podía hacer cualquiera (sin
 // chequear agenteId), lo que rompía por completo la garantía de bloqueo (§18): cualquiera
 // podía sacarle a otro agente una conversación tomada, o cerrarla, sin su consentimiento.
-export function liberarConversacion(id: string, agenteId: string): boolean {
-  const conv = conversaciones.get(id)
-  if (!conv || conv.estado !== 'asignada' || conv.asignadaA?.id !== agenteId) return false
-  conv.estado = 'sin_asignar'
-  conv.asignadaA = undefined
-  return true
+export async function liberarConversacion(id: string, agenteId: string): Promise<boolean> {
+  const [actualizado] = await db()
+    .update(conversacionesStandalone)
+    .set({ estado: 'sin_asignar', asignadaAId: null, asignadaANombre: null, actualizadoEn: new Date() })
+    .where(and(eq(conversacionesStandalone.id, id), eq(conversacionesStandalone.estado, 'asignada'), eq(conversacionesStandalone.asignadaAId, agenteId)))
+    .returning()
+  return !!actualizado
 }
 
-export function cerrarConversacion(id: string, agenteId: string): boolean {
-  const conv = conversaciones.get(id)
-  if (!conv || conv.estado !== 'asignada' || conv.asignadaA?.id !== agenteId) return false
-  conv.estado = 'cerrada'
-  return true
+export async function cerrarConversacion(id: string, agenteId: string): Promise<boolean> {
+  const [actualizado] = await db()
+    .update(conversacionesStandalone)
+    .set({ estado: 'cerrada', actualizadoEn: new Date() })
+    .where(and(eq(conversacionesStandalone.id, id), eq(conversacionesStandalone.estado, 'asignada'), eq(conversacionesStandalone.asignadaAId, agenteId)))
+    .returning()
+  return !!actualizado
 }
 
 export type ResultadoTraspaso = { ok: true } | { ok: false; motivo: 'no_existe' | 'no_sos_dueño' }
@@ -160,12 +242,14 @@ export type ResultadoTraspaso = { ok: true } | { ok: false; motivo: 'no_existe' 
 // El dueño actual le pasa la conversación directo a otro agente (queda 'asignada' todo
 // el tiempo, sin pasar por 'sin_asignar' en el medio) — a diferencia de liberar, nadie
 // más puede agarrarla de pasada durante el traspaso.
-export function traspasarConversacion(id: string, deAgenteId: string, destino: Agente): ResultadoTraspaso {
-  const conv = conversaciones.get(id)
-  if (!conv) return { ok: false, motivo: 'no_existe' }
-  if (conv.estado !== 'asignada' || conv.asignadaA?.id !== deAgenteId) {
-    return { ok: false, motivo: 'no_sos_dueño' }
-  }
-  conv.asignadaA = destino
-  return { ok: true }
+export async function traspasarConversacion(id: string, deAgenteId: string, destino: Agente): Promise<ResultadoTraspaso> {
+  const [actualizado] = await db()
+    .update(conversacionesStandalone)
+    .set({ asignadaAId: destino.id, asignadaANombre: destino.nombre, actualizadoEn: new Date() })
+    .where(and(eq(conversacionesStandalone.id, id), eq(conversacionesStandalone.estado, 'asignada'), eq(conversacionesStandalone.asignadaAId, deAgenteId)))
+    .returning()
+  if (actualizado) return { ok: true }
+
+  const [actual] = await db().select({ id: conversacionesStandalone.id }).from(conversacionesStandalone).where(eq(conversacionesStandalone.id, id))
+  return { ok: false, motivo: actual ? 'no_sos_dueño' : 'no_existe' }
 }

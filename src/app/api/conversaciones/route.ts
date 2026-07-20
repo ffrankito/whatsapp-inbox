@@ -30,14 +30,15 @@ export async function GET(request: NextRequest) {
   }
 
   if (STANDALONE_MODE) {
-    const conversations = listarStandalone(numeroId!).map((c) => ({
+    const lista = await listarStandalone(numeroId!)
+    const conversations = lista.map((c) => ({
       id: c.id,
       contactId: c.contactId,
       fullName: c.fullName,
       phone: c.phone,
-      lastMessageBody: c.mensajes.at(-1)?.body,
-      lastMessageId: c.mensajes.at(-1)?.id,
-      lastMessageAdjuntoTipo: c.mensajes.at(-1)?.adjunto?.tipo,
+      lastMessageBody: c.ultimoMensaje?.body,
+      lastMessageId: c.ultimoMensaje?.id,
+      lastMessageAdjuntoTipo: c.ultimoMensaje?.adjunto?.tipo,
       unreadCount: 0,
       estado: c.estado,
       asignadaA: c.asignadaA,

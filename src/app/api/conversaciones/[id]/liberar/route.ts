@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const ok = liberarConversacionDemo(id, agente.id)
     if (!ok) return NextResponse.json({ error: 'No sos el dueño de esta conversación' }, { status: 423 })
   } else if (STANDALONE_MODE) {
-    const ok = liberarConversacion(id, agente.id)
+    const ok = await liberarConversacion(id, agente.id)
     if (!ok) return NextResponse.json({ error: 'No sos el dueño de esta conversación' }, { status: 423 })
   }
 

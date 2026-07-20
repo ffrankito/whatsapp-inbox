@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   if (STANDALONE_MODE) {
-    const resultado = asignarConversacion(id, agente)
+    const resultado = await asignarConversacion(id, agente)
     if (!resultado.ok) {
       const error = resultado.motivo === 'cerrada' ? 'Esta conversación está cerrada' : 'Ya asignada'
       return NextResponse.json({ error, asignadaA: 'asignadaA' in resultado ? resultado.asignadaA : undefined }, { status: 409 })

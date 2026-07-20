@@ -26,7 +26,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (STANDALONE_MODE) {
     const { numero: numeroId } = (await request.json().catch(() => ({}))) as { numero?: NumeroId }
-    const conv = obtenerConversacion(id)
+    const conv = await obtenerConversacion(id)
     const numero = numeroId ? NUMEROS[numeroId] : undefined
     const waId = conv ? ultimoMensajeEntranteWaId(conv) ?? (numero ? await buscarUltimoMensajeEntranteEnKapso(numero, conv.phone) : undefined) : undefined
     if (conv && numero && waId) {

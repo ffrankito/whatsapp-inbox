@@ -29,7 +29,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (STANDALONE_MODE) {
     const agente = await agenteActual(request)
     const { numero: numeroId } = (await request.json().catch(() => ({}))) as { numero?: NumeroId }
-    const conv = obtenerConversacion(id)
+    const conv = await obtenerConversacion(id)
     const numero = numeroId ? NUMEROS[numeroId] : undefined
     // Si no tenemos el waId guardado (conversaciones con mensajes viejos, de antes de
     // empezar a trackearlo), se lo preguntamos directo a Kapso.

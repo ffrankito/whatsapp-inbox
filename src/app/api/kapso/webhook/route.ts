@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         rawStatus === 'read' ? 'read' :
         rawStatus === 'failed' ? 'failed' :
         'sent'
-      const resultado = messageId ? actualizarEstadoMensaje(messageId, status) : null
+      const resultado = messageId ? await actualizarEstadoMensaje(messageId, status) : null
       if (resultado) {
         emitirEvento({ tipo: 'mensaje', numero: resultado.numero })
       } else if (event === 'whatsapp.message.sent' && payload?.message?.kapso?.direction === 'outbound') {
@@ -74,8 +74,8 @@ export async function POST(request: NextRequest) {
           if (!numero) {
             console.error('[Kapso webhook] mensaje del celular: no se pudo identificar el número (phone_number_id):', saliente.phoneNumberId)
           } else {
-            const conv = encontrarOCrearConversacion(numero.id, saliente.telefono, saliente.nombreContacto)
-            agregarMensaje(conv.id, `[Celular] ${saliente.texto}`, 'outbound', saliente.adjunto, { status: 'sent', waId: saliente.waId })
+            const conv = await encontrarOCrearConversacion(numero.id, saliente.telefono, saliente.nombreContacto)
+            await agregarMensaje(conv.id, `[Celular] ${saliente.texto}`, 'outbound', saliente.adjunto, { status: 'sent', waId: saliente.waId })
             emitirEvento({ tipo: 'mensaje', numero: numero.id })
           }
         }
@@ -112,8 +112,8 @@ export async function POST(request: NextRequest) {
   // Fase 2 del roadmap: Kapso real conectado, todavía sin GHL — se guarda en memoria
   // en vez de reenviar (ver ARCHITECTURE.md §14.2). Se descarta en la Fase 6.
   if (STANDALONE_MODE) {
-    const conv = encontrarOCrearConversacion(numero.id, entrante.telefono, entrante.nombreContacto)
-    agregarMensaje(conv.id, entrante.texto, 'inbound', entrante.adjunto, { waId: entrante.waId })
+    const conv = await encontrarOCrearConversacion(numero.id, entrante.telefono, entrante.nombreContacto)
+    await agregarMensaje(conv.id, entrante.texto, 'inbound', entrante.adjunto, { waId: entrante.waId })
     emitirEvento({ tipo: 'mensaje', numero: numero.id })
     return NextResponse.json({ ok: true })
   }

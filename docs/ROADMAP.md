@@ -91,10 +91,14 @@ bien.
 
 ## Fase 3 — Infra real para GHL
 
-- [ ] Crear proyecto Postgres → `DATABASE_URL` (Supabase Cloud o self-hosted en el mismo
-      data center, a definir — no cambia código). Recién acá hace falta base de datos de
-      verdad, para guardar el token de instalación de GHL.
-- [ ] Correr `npm run db:generate` + `npm run db:migrate` para crear `ghl_installs`.
+- [x] **Adelantado desde la Fase 2** (las pruebas en vivo lo necesitaban antes de
+      tiempo): proyecto Postgres creado (Railway, no Supabase — igual de válido, no
+      cambia código) y migrado con `npm run db:generate` + `npm run db:migrate`. De
+      paso se adelantó también la persistencia de conversaciones/mensajes de
+      `STANDALONE_MODE` (`conversaciones_standalone`, `mensajes_standalone`) — no
+      estaba en el plan original de esta fase (que era *solo* `ghl_installs`), se
+      agregó por necesidad, ver ARCHITECTURE.md §32.2. Esas 2 tablas se dan de baja en
+      la Fase 6, no son parte del diseño final.
 - [ ] Exponer el contenedor con salida pública, detrás de un reverse proxy con TLS → esto
       da el dominio real que falta en varios lugares. **Importante**: configurar el proxy
       para no bufferear `/api/eventos` (rompe el tiempo real si lo hace).

@@ -1050,3 +1050,57 @@ cada nivel anidado, el detalle que hace falta para que un hijo `flex:1`/celda de
 pueda encogerse por debajo de su contenido en vez de forzar a todo el padre a crecer
 (la regla clásica de "cada nivel de flex/grid anidado necesita su propio `min-height: 0`
 para que el scroll interno funcione").
+
+## 32. Deploy en Railway + persistencia real adelantada de la Fase 3
+
+Dos cambios grandes la misma noche de la primera prueba con número real, los dos para
+que las pruebas dejen de depender de mi máquina local.
+
+### 32.1 Railway como entorno de prueba (no reemplaza el data center)
+
+El plan de producción sigue siendo Docker en el data center propio de Security24 — esto
+es solo para las Fases 1–2, en vez de mi server local + túnel de ngrok (que se caía cada
+vez que yo tocaba algo). Railway construye directo desde `github.com/ffrankito/whatsapp-inbox`
+usando el mismo `Dockerfile` que ya existía, sin tocar nada del código de despliegue —
+es exactamente el mismo mecanismo que usaría el servidor real (`docker build` a partir
+del código fuente), solo que automatizado por Railway en cada push en vez de un
+`docker compose up --build` manual.
+
+### 32.2 Conversaciones/mensajes de STANDALONE_MODE ahora en Postgres, no en memoria
+
+Esto estaba pensado para la Fase 3 (y ahí, con un alcance más chico — ver §más abajo),
+pero se adelantó esta noche: la memoria en RAM se perdía en cada reinicio del proceso
+(pasó varias veces seguidas probando en vivo — ver §29), y con las pruebas de mañana
+encima no daba esperar. Se agregaron 2 tablas (`src/db/schema/standalone.ts`,
+`conversaciones_standalone` y `mensajes_standalone`) y se reescribió
+`src/lib/standalone/store.ts` entero para que use Drizzle contra Postgres en vez de un
+`Map` — mismas firmas de función (ahora todas `async`), mismo comportamiento hacia
+afuera, así que el único cambio en las ~12 rutas que lo usan fue agregar `await`.
+
+Detalles de la implementación:
+- `src/db/index.ts` cambió de exportar `db` como una constante (que crearía la conexión
+  a Postgres al cargar el módulo, rompiendo hasta DEMO_MODE si faltaba `DATABASE_URL`) a
+  exportar una función `db()` con inicialización perezosa — solo se conecta la primera
+  vez que de verdad se usa.
+- Las acciones de asignar/liberar/cerrar/traspasar usan un solo `UPDATE ... WHERE ...
+  RETURNING` con la condición de guarda adentro del `WHERE` (en vez de leer-y-despuésescribir)
+  — es atómico, no hace falta una transacción aparte para evitar una carrera entre
+  dos agentes tomando la misma conversación a la vez.
+- `listarConversaciones` no trae todos los mensajes de cada conversación (solo hace
+  falta el último para la vista previa de la lista) — devuelve un
+  `StandaloneConversacionResumen` con `ultimoMensaje` en vez del array completo.
+- Los adjuntos (imagen/audio/documento) se guardan como `data:` URL adentro de una
+  columna `jsonb` — hasta 8MB en base64, ~10.7MB de texto por mensaje. Funciona bien
+  para el volumen de esta etapa, no es la solución final (la Fase 6, con GHL de fuente
+  de verdad, ya no necesita esto).
+
+Probado en vivo contra la base real de Railway: un webhook firmado crea la conversación,
+**sobrevive un reinicio completo del proceso** (la prueba real de que esto funciona), y
+el flujo completo de tomar/bloquear-a-otro/liberar también se probó contra la base real.
+
+**Importante — esto es más alcance del que tenía planeado originalmente la Fase 3**
+(que era *solo* guardar el token de instalación de GHL, con las conversaciones viviendo
+en GHL una vez conectado — ver §4, decisión de diseño #1). Se adelantó por necesidad de
+las pruebas de esta etapa, no porque haya cambiado el diseño final: en la Fase 6, estas
+2 tablas (`conversaciones_standalone`, `mensajes_standalone`) se dan de baja, GHL pasa a
+ser la única fuente de verdad, tal como estaba planeado desde el principio.
