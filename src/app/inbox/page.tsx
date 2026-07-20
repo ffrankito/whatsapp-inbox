@@ -635,6 +635,7 @@ export default function InboxPage() {
               data-numero={n.id}
               data-active={String(n.id === numeroActivo)}
               onClick={() => {
+                if (n.id === numeroActivo) return
                 setNumeroActivo(n.id)
                 setSeleccionadaId(null)
                 // Si no se limpia acá, mientras se espera la respuesta del nuevo número
