@@ -271,10 +271,15 @@ export default function InboxPage() {
   }
 
   const cargarConversaciones = useCallback(async () => {
+    const numeroPedido = numeroActivoRef.current
     try {
-      const res = await fetch(`/api/conversaciones?numero=${numeroActivoRef.current}`)
+      const res = await fetch(`/api/conversaciones?numero=${numeroPedido}`)
       if (!res.ok) return
       const data = await res.json()
+      // Si mientras esperábamos la respuesta el usuario ya cambió de número, esto es una
+      // respuesta vieja para un número que ya no está activo — aplicarla pisaría la lista
+      // recién limpiada con datos del número anterior.
+      if (numeroActivoRef.current !== numeroPedido) return
       const nuevas: Conversacion[] = data.conversations ?? []
       conversacionesRef.current = nuevas
       // Evita re-renderizar todo el árbol (lista + hilo) cuando el poll trae exactamente
@@ -632,6 +637,9 @@ export default function InboxPage() {
               onClick={() => {
                 setNumeroActivo(n.id)
                 setSeleccionadaId(null)
+                // Si no se limpia acá, mientras se espera la respuesta del nuevo número
+                // queda un instante mostrando las conversaciones del número anterior.
+                setConversaciones([])
               }}
             >
               <span className="row1">
