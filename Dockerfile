@@ -16,8 +16,13 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Next.js necesita estas en build time si algún día se leen desde código de cliente;
-# hoy no hay NEXT_PUBLIC_*, se deja el ARG por si hace falta más adelante.
+# Las NEXT_PUBLIC_* se "hornean" adentro del bundle de cliente en el momento del build,
+# no se leen en runtime — así que tienen que llegar acá como ARG antes de `npm run
+# build`, no alcanza con cargarlas como variable de entorno del servicio en Railway.
+# Login con Google (temporal, ver docs/BACKLOG.md #1): necesita el Client ID en el botón
+# que corre en el navegador.
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 RUN npm run build
 
 FROM node:22-alpine AS runner
