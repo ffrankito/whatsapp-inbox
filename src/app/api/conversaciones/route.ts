@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       unreadCount: c.unreadCount,
       estado: c.estado,
       asignadaA: c.asignadaA,
+      vistoHastaMensajeId: c.vistoHastaMensajeId,
     }))
     return NextResponse.json({ conversations })
   }
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
       unreadCount: 0,
       estado: c.estado,
       asignadaA: c.asignadaA,
+      vistoHastaMensajeId: c.vistoHastaMensajeId,
     }))
     return NextResponse.json({ conversations })
   }

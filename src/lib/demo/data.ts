@@ -20,6 +20,7 @@ export type DemoConversacion = {
   mensajes: DemoMensaje[]
   estado: EstadoConversacion
   asignadaA?: Agente
+  vistoHastaMensajeId?: string
 }
 
 function msg(id: string, body: string, direction: 'inbound' | 'outbound', minutosAtras: number, adjunto?: Adjunto): DemoMensaje {

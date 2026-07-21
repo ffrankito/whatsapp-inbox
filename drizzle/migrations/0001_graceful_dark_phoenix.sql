@@ -1,0 +1,1 @@
+ALTER TABLE "conversaciones_standalone" ADD COLUMN "visto_hasta_mensaje_id" text;

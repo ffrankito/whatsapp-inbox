@@ -32,6 +32,7 @@ export type StandaloneConversacion = {
   mensajes: StandaloneMensaje[]
   estado: EstadoConversacion
   asignadaA?: Agente
+  vistoHastaMensajeId?: string
 }
 
 // Resumen liviano para la lista — no trae todos los mensajes, solo el último (lo único
@@ -69,6 +70,7 @@ function aConversacionBase(row: typeof conversacionesStandalone.$inferSelect): O
     fullName: row.fullName,
     estado: row.estado as EstadoConversacion,
     asignadaA: aAgente(row.asignadaAId, row.asignadaANombre),
+    vistoHastaMensajeId: row.vistoHastaMensajeId ?? undefined,
   }
 }
 
@@ -169,6 +171,19 @@ export async function actualizarEstadoMensaje(waId: string, status: EstadoMensaj
 
   const [conv] = await db().select({ numero: conversacionesStandalone.numero }).from(conversacionesStandalone).where(eq(conversacionesStandalone.id, actualizado.conversacionId))
   return conv ? { numero: conv.numero as NumeroId } : null
+}
+
+// "Leído" es una propiedad de la conversación, no de quién la mira (ver el comentario
+// junto a la columna en src/db/schema/standalone.ts) — cualquier agente que abra la
+// conversación la marca como vista para todos, sin chequeo de dueño. Devuelve el número
+// para poder avisar por SSE a las demás pestañas/agentes que la estén mirando.
+export async function marcarConversacionVista(id: string, mensajeId: string): Promise<{ numero: NumeroId } | null> {
+  const [actualizado] = await db()
+    .update(conversacionesStandalone)
+    .set({ vistoHastaMensajeId: mensajeId })
+    .where(eq(conversacionesStandalone.id, id))
+    .returning({ numero: conversacionesStandalone.numero })
+  return actualizado ? { numero: actualizado.numero as NumeroId } : null
 }
 
 // Para el indicador de "escribiendo…": Meta requiere el id del último mensaje ENTRANTE

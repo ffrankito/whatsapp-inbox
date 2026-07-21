@@ -13,6 +13,10 @@ export const conversacionesStandalone = pgTable('conversaciones_standalone', {
   estado: text('estado').notNull().default('sin_asignar'),
   asignadaAId: text('asignada_a_id'),
   asignadaANombre: text('asignada_a_nombre'),
+  // "Leído" es una propiedad de la conversación, no de quién la mira — cualquier agente
+  // que la abra la marca como vista para todos (ver docs/ARCHITECTURE.md §26, antes esto
+  // vivía solo en localStorage y no se sincronizaba entre navegadores/agentes).
+  vistoHastaMensajeId: text('visto_hasta_mensaje_id'),
   creadoEn: timestamp('creado_en').defaultNow().notNull(),
   actualizadoEn: timestamp('actualizado_en').defaultNow().notNull(),
 })

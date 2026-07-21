@@ -71,6 +71,16 @@ function numeroDeConversacionDemo(conv: DemoConversacion): NumeroId {
   return 'dealers'
 }
 
+// Mismo criterio que en standalone/store.ts: "leído" es de la conversación, no de quién
+// la mira — se guarda en el mismo objeto en memoria, así que ya es compartido entre
+// cualquiera que pegue contra este proceso (no hay nada por navegador acá).
+export function marcarConversacionVistaDemo(id: string, mensajeId: string): boolean {
+  const conv = encontrarConversacion(id)
+  if (!conv) return false
+  conv.vistoHastaMensajeId = mensajeId
+  return true
+}
+
 export function agregarNotaDemo(contactId: string, body: string) {
   // En modo demo la nota no se persiste en ningún lado real — alcanza con loguearla,
   // total en la Fase 6 esto pasa a ser un POST /contacts/{id}/notes de verdad en GHL.

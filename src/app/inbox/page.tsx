@@ -37,6 +37,7 @@ type Conversacion = {
   unreadCount?: number
   estado?: EstadoConversacion
   asignadaA?: Agente
+  vistoHastaMensajeId?: string
 }
 
 type Mensaje = {
@@ -67,19 +68,6 @@ declare global {
 // Tiempo real vía SSE (/api/eventos) — este poll es solo red de seguridad por si se
 // corta la conexión SSE (reinicio del contenedor, deploy). Ver ARCHITECTURE.md §5.1.
 const POLL_RESPALDO_MS = 45_000
-const VISTOS_STORAGE_KEY = 's24_vistos'
-
-// Se lee síncrono (no en un useEffect) para que en el primer render ya sepamos qué se
-// vio antes — si no, todo parpadearía como "sin leer" un instante hasta que el efecto
-// corra.
-function leerVistosGuardados(): Record<string, string> {
-  if (typeof window === 'undefined') return {}
-  try {
-    return JSON.parse(localStorage.getItem(VISTOS_STORAGE_KEY) ?? '{}')
-  } catch {
-    return {}
-  }
-}
 
 function iniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/).filter(Boolean)
@@ -108,7 +96,8 @@ function conversacionesIguales(a: Conversacion[], b: Conversacion[]): boolean {
       c.lastMessageAdjuntoTipo === d.lastMessageAdjuntoTipo &&
       c.estado === d.estado &&
       c.asignadaA?.id === d.asignadaA?.id &&
-      c.asignadaA?.nombre === d.asignadaA?.nombre
+      c.asignadaA?.nombre === d.asignadaA?.nombre &&
+      c.vistoHastaMensajeId === d.vistoHastaMensajeId
     )
   })
 }
@@ -295,28 +284,12 @@ export default function InboxPage() {
     seleccionadaIdRef.current = seleccionadaId
   }, [seleccionadaId])
 
-  // Qué fue lo último visto por este agente en cada conversación — persiste entre
-  // recargas (localStorage) para que "no leída" sea real y no un número fijo de mentira.
-  // Estado (no ref): así el chip "sin leer" desaparece al toque al abrir la conversación,
-  // no recién en el próximo poll.
-  const [vistos, setVistos] = useState<Record<string, string>>(() => leerVistosGuardados())
-
+  // "No leída" es una propiedad de la conversación en sí (vistoHastaMensajeId, en el
+  // servidor), no de quién la mira — así cualquier agente/dispositivo que la abra la
+  // marca como leída para todos, en vez de cada navegador tener su propia versión (era
+  // localStorage antes, ver docs/ARCHITECTURE.md §26).
   function noLeida(c: Conversacion): boolean {
-    return !!c.lastMessageId && vistos[c.id] !== c.lastMessageId
-  }
-
-  function marcarVista(id: string, lastMessageId: string | undefined) {
-    if (!lastMessageId) return
-    setVistos((prev) => {
-      if (prev[id] === lastMessageId) return prev
-      const next = { ...prev, [id]: lastMessageId }
-      try {
-        localStorage.setItem(VISTOS_STORAGE_KEY, JSON.stringify(next))
-      } catch {
-        // localStorage lleno o no disponible — no es crítico, se vuelve a intentar la próxima vez
-      }
-      return next
-    })
+    return !!c.lastMessageId && c.vistoHastaMensajeId !== c.lastMessageId
   }
 
   const cargarConversaciones = useCallback(async () => {
@@ -337,6 +310,22 @@ export default function InboxPage() {
       // silencioso: el próximo evento/poll de respaldo reintenta
     }
   }, [])
+
+  const marcarVista = useCallback(
+    (id: string, lastMessageId: string | undefined) => {
+      if (!lastMessageId) return
+      fetch(`/api/conversaciones/${id}/visto`, {
+        method: 'POST',
+        headers: headersConAgente({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ mensajeId: lastMessageId }),
+      })
+        .then(() => cargarConversaciones())
+        .catch(() => {
+          // silencioso: si falla, sigue apareciendo "sin leer" y se reintenta al volver a abrirla
+        })
+    },
+    [headersConAgente, cargarConversaciones],
+  )
 
   // Agentes conocidos (para el selector de "Traspasar a…") — llamar a esta ruta también
   // nos registra a nosotros mismos como destino posible para los demás (ver ARCHITECTURE.md §20).
@@ -406,7 +395,7 @@ export default function InboxPage() {
     }).catch(() => {})
     const interval = setInterval(() => cargarMensajes(seleccionadaId), POLL_RESPALDO_MS)
     return () => clearInterval(interval)
-  }, [seleccionadaId, cargarMensajes, headersConAgente])
+  }, [seleccionadaId, cargarMensajes, headersConAgente, marcarVista])
 
   // ── Tiempo real: una sola conexión SSE, reacciona a eventos del número activo ─
   useEffect(() => {
