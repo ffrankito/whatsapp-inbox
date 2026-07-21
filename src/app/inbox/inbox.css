@@ -149,6 +149,33 @@
 }
 .s24-console > * + * { border-left: 1px solid var(--border); }
 
+/* ── Scroll fino y discreto en los 3 paneles que scrollean (default del sistema
+   operativo se veía grueso/genérico) ─────────────────────────────────────────── */
+.s24-numbers, .s24-convlist, .s24-bubbles {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.s24-numbers::-webkit-scrollbar,
+.s24-convlist::-webkit-scrollbar,
+.s24-bubbles::-webkit-scrollbar {
+  width: 8px;
+}
+.s24-numbers::-webkit-scrollbar-track,
+.s24-convlist::-webkit-scrollbar-track,
+.s24-bubbles::-webkit-scrollbar-track {
+  background: transparent;
+}
+.s24-numbers::-webkit-scrollbar-thumb,
+.s24-convlist::-webkit-scrollbar-thumb,
+.s24-bubbles::-webkit-scrollbar-thumb {
+  background: var(--border); border-radius: 999px;
+}
+.s24-numbers::-webkit-scrollbar-thumb:hover,
+.s24-convlist::-webkit-scrollbar-thumb:hover,
+.s24-bubbles::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
 .s24-numbers { padding: 16px 10px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; min-height: 0; background: var(--surface); }
 .s24-numbers .eyebrow {
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
