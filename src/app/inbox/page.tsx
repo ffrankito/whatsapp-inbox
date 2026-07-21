@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Script from 'next/script'
 import './inbox.css'
 
 // NOTA: los nombres de campo de GHL (ConversationSchema / GetMessageResponseDto) están
@@ -47,10 +48,25 @@ type Mensaje = {
   status?: EstadoMensaje
 }
 
+// Tipado mínimo del SDK de Google Identity Services (no hay @types oficial) — solo lo
+// que se usa acá, para no tener que tirar de `any` en el resto del componente.
+type GoogleCredentialResponse = { credential: string }
+type GoogleAccountsId = {
+  initialize: (config: { client_id: string; callback: (resp: GoogleCredentialResponse) => void }) => void
+  renderButton: (
+    parent: HTMLElement,
+    options: { theme?: string; size?: string; text?: string; shape?: string; width?: number },
+  ) => void
+}
+declare global {
+  interface Window {
+    google?: { accounts: { id: GoogleAccountsId } }
+  }
+}
+
 // Tiempo real vía SSE (/api/eventos) — este poll es solo red de seguridad por si se
 // corta la conexión SSE (reinicio del contenedor, deploy). Ver ARCHITECTURE.md §5.1.
 const POLL_RESPALDO_MS = 45_000
-const AGENTE_STORAGE_KEY = 's24_agente'
 const VISTOS_STORAGE_KEY = 's24_vistos'
 
 // Se lee síncrono (no en un useEffect) para que en el primer render ya sepamos qué se
@@ -171,10 +187,13 @@ export default function InboxPage() {
   const grabacionRef = useRef<ContextoGrabacion | null>(null)
   const grabTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // ── Identidad del agente (solo hace falta mientras no haya SSO de GHL —
-  // ver ARCHITECTURE.md, "Asignación / bloqueo entre agentes") ─────────────
+  // ── Identidad del agente vía login con Google (temporal hasta el SSO de GHL en la
+  // Fase 6 — ver docs/BACKLOG.md #1). `cargandoAgente` evita mostrar el botón de login
+  // por un instante antes de confirmar si ya había una sesión (cookie) válida.
   const [agente, setAgente] = useState<Agente | null>(null)
-  const [nombreInput, setNombreInput] = useState('')
+  const [cargandoAgente, setCargandoAgente] = useState(true)
+  const [googleScriptListo, setGoogleScriptListo] = useState(false)
+  const googleBtnRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!imagenAmpliada) return
@@ -185,32 +204,51 @@ export default function InboxPage() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [imagenAmpliada])
 
+  // Restaura la sesión desde la cookie (si había un login de Google válido) al cargar
+  // la página — reemplaza el localStorage de antes, ahora la identidad es server-side.
   useEffect(() => {
-    try {
-      const guardado = localStorage.getItem(AGENTE_STORAGE_KEY)
-      // localStorage no existe durante el render en el server, solo se puede leer acá.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (guardado) setAgente(JSON.parse(guardado))
-    } catch {
-      // localStorage no disponible o corrupto — se vuelve a pedir el nombre
-    }
+    fetch('/api/auth/me')
+      .then((res) => res.json())
+      .then((data) => setAgente(data.agente ?? null))
+      .catch(() => setAgente(null))
+      .finally(() => setCargandoAgente(false))
   }, [])
 
-  function confirmarAgente() {
-    const nombre = nombreInput.trim()
-    if (!nombre) return
-    const nuevo: Agente = { id: crypto.randomUUID(), nombre }
-    localStorage.setItem(AGENTE_STORAGE_KEY, JSON.stringify(nuevo))
-    setAgente(nuevo)
+  const manejarCredencialGoogle = useCallback((resp: GoogleCredentialResponse) => {
+    fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-s24-inbox': '1' },
+      body: JSON.stringify({ credential: resp.credential }),
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => setAgente(data.agente))
+      .catch(() => {
+        // Token rechazado (fuera del dominio permitido, expirado, etc.) — se queda en
+        // la pantalla de login, Google ya le muestra su propio error si corresponde.
+      })
+  }, [])
+
+  // Renderiza el botón de Google apenas están listos tanto el script del SDK como la
+  // confirmación de que no había sesión previa — si se hace antes de tiempo, el botón
+  // parpadea un instante antes de la pantalla principal.
+  useEffect(() => {
+    if (!googleScriptListo || cargandoAgente || agente || !googleBtnRef.current) return
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    if (!clientId || !window.google) return
+    window.google.accounts.id.initialize({ client_id: clientId, callback: manejarCredencialGoogle })
+    window.google.accounts.id.renderButton(googleBtnRef.current, { theme: 'outline', size: 'large', text: 'signin_with' })
+  }, [googleScriptListo, cargandoAgente, agente, manejarCredencialGoogle])
+
+  function cerrarSesion() {
+    fetch('/api/auth/logout', { method: 'POST', headers: { 'x-s24-inbox': '1' } }).finally(() => setAgente(null))
   }
 
   const headersConAgente = useCallback(
     (extra: Record<string, string> = {}): Record<string, string> => ({
       ...extra,
       'x-s24-inbox': '1',
-      ...(agente ? { 'x-s24-agente-id': agente.id, 'x-s24-agente-nombre': agente.nombre } : {}),
     }),
-    [agente],
+    [],
   )
 
   // ── Handshake SSO con GHL (iframe del Custom Menu Link) ──────────────────
@@ -611,26 +649,28 @@ export default function InboxPage() {
     await refrescarTodo()
   }
 
-  // ── Gate: pedir nombre antes de mostrar el inbox (identidad para el bloqueo) ─
+  // ── Gate: login con Google antes de mostrar el inbox (identidad para el bloqueo
+  // entre agentes; temporal hasta el SSO de GHL en la Fase 6 — ver docs/BACKLOG.md #1) ──
+  if (cargandoAgente) {
+    // Se espera la confirmación de /api/auth/me antes de mostrar nada — si no, el botón
+    // de login parpadearía un instante aunque ya hubiera una sesión válida.
+    return (
+      <div className="s24-inbox">
+        <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={() => setGoogleScriptListo(true)} />
+      </div>
+    )
+  }
+
   if (!agente) {
     return (
       <div className="s24-inbox">
+        <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={() => setGoogleScriptListo(true)} />
         <div className="s24-agente-gate">
           <div className="s24-agente-card">
             <img className="mark" src="/icon.svg" alt="Security24" />
-            <h1>¿Quién sos?</h1>
-            <p>Se usa para saber quién tiene tomada cada conversación.</p>
-            <input
-              type="text"
-              placeholder="Tu nombre"
-              value={nombreInput}
-              onChange={(e) => setNombreInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && confirmarAgente()}
-              autoFocus
-            />
-            <button className="s24-btn primary" onClick={confirmarAgente} disabled={!nombreInput.trim()}>
-              Entrar
-            </button>
+            <h1>Inbox WhatsApp</h1>
+            <p>Iniciá sesión con tu cuenta de Security24 para continuar.</p>
+            <div ref={googleBtnRef} />
           </div>
         </div>
       </div>
@@ -644,7 +684,10 @@ export default function InboxPage() {
           <img className="mark" src="/icon.svg" alt="Security24" />
           <div>
             <h1>Inbox WhatsApp</h1>
-            <div className="sub">Área comercial · Security24 · {agente.nombre}</div>
+            <div className="sub">
+              Área comercial · Security24 · {agente.nombre}{' '}
+              <button type="button" className="s24-logout" onClick={cerrarSesion}>Cerrar sesión</button>
+            </div>
           </div>
         </div>
         <div className="s24-channel-status">

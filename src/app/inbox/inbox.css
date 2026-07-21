@@ -121,6 +121,11 @@
 }
 .s24-title h1 { font-size: 16px; margin: 0; font-weight: 700; color: var(--navy-ink); letter-spacing: -0.01em; }
 .s24-title .sub { font-size: 12px; color: var(--navy-ink-dim); margin-top: 1px; }
+.s24-logout {
+  all: unset; cursor: pointer; font-size: 11px; color: var(--navy-ink-dim);
+  text-decoration: underline; margin-left: 4px;
+}
+.s24-logout:hover { color: var(--navy-ink); }
 
 .s24-channel-status { display: flex; gap: 14px; flex-wrap: wrap; }
 
@@ -376,11 +381,6 @@
 }
 .s24-agente-card h1 { font-size: 18px; margin: 0; }
 .s24-agente-card p { font-size: 12.5px; color: var(--text-dim); margin: 0 0 8px; }
-.s24-agente-card input {
-  width: 100%; font: inherit; padding: 11px 14px; border-radius: 11px;
-  border: 1px solid var(--border); background: var(--surface-soft); color: var(--text); text-align: center;
-}
-.s24-agente-card .s24-btn { width: 100%; text-align: center; padding: 11px 14px; margin-top: 4px; border-radius: 12px; }
 
 /* ── Avatares ─────────────────────────────────────────────────────────────── */
 .s24-avatar {
