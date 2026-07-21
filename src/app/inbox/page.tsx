@@ -398,6 +398,28 @@ export default function InboxPage() {
   // libre (antes dejaba responder a cualquiera mientras nadie más la hubiera tomado).
   const puedeEscribir = !!seleccionada && seleccionada.estado === 'asignada' && esMia
 
+  // Abre un documento (PDF/DOCX/etc.) en una pestaña nueva, pasando por nuestro proxy en
+  // vez de linkear directo a la URL de Kapso — así se abre inline en el visor nativo del
+  // navegador en vez de forzar "Guardar como" (ver /api/adjunto/proxy). Se abre la
+  // pestaña en blanco de forma síncrona (dentro del click) y recién después se le carga
+  // la URL real — si se abriera recién cuando responde el fetch, el navegador lo trata
+  // como popup no solicitado y lo bloquea.
+  function abrirDocumento(mensajeId: string) {
+    if (!seleccionada) return
+    const ventana = window.open('', '_blank')
+    fetch(`/api/adjunto/proxy?conversacionId=${seleccionada.id}&mensajeId=${mensajeId}`, {
+      headers: headersConAgente(),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('proxy falló')
+        return res.blob()
+      })
+      .then((blob) => {
+        if (ventana) ventana.location.href = URL.createObjectURL(blob)
+      })
+      .catch(() => ventana?.close())
+  }
+
   async function refrescarTodo() {
     await cargarConversaciones()
     if (seleccionadaIdRef.current) await cargarMensajes(seleccionadaIdRef.current)
@@ -779,7 +801,7 @@ export default function InboxPage() {
                       className={`s24-bubble ${m.direction === 'inbound' ? 'in' : 'out'}`}
                       data-media={String(!!esMediaVisual)}
                     >
-                      {m.adjunto && <Adjunto adjunto={m.adjunto} onAmpliar={setImagenAmpliada} />}
+                      {m.adjunto && <Adjunto adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} onAbrirDocumento={abrirDocumento} />}
                       {esMediaVisual && !caption && <span className="t sobre-media">{horaTick}</span>}
                       {caption && <span className="s24-bubble-text">{caption}</span>}
                       {!(esMediaVisual && !caption) && <span className="t">{horaTick}</span>}
@@ -991,7 +1013,17 @@ function Tick({ status }: { status?: EstadoMensaje }) {
   return <span className="s24-tick" title="Enviado">✓</span>
 }
 
-function Adjunto({ adjunto, onAmpliar }: { adjunto: Adjunto; onAmpliar: (url: string) => void }) {
+function Adjunto({
+  adjunto,
+  onAmpliar,
+  mensajeId,
+  onAbrirDocumento,
+}: {
+  adjunto: Adjunto
+  onAmpliar: (url: string) => void
+  mensajeId: string
+  onAbrirDocumento: (mensajeId: string) => void
+}) {
   if (adjunto.tipo === 'image') {
     return (
       <img
@@ -1010,6 +1042,17 @@ function Adjunto({ adjunto, onAmpliar }: { adjunto: Adjunto; onAmpliar: (url: st
   }
   if (adjunto.tipo === 'audio') {
     return <audio className="s24-adjunto-audio" src={adjunto.url} controls />
+  }
+  // Los documentos que llegan de Kapso son una URL http(s) externa — hay que pasar por
+  // el proxy para que se abran inline (ver /api/adjunto/proxy). Los que mandamos nosotros
+  // en modo standalone quedan como `data:` URL propia (sin storage externo, ver
+  // ARCHITECTURE.md §17) — esos no necesitan proxy, se linkean directo.
+  if (adjunto.url.startsWith('http://') || adjunto.url.startsWith('https://')) {
+    return (
+      <button type="button" className="s24-adjunto-doc" onClick={() => onAbrirDocumento(mensajeId)}>
+        📄 <span>{adjunto.nombre || 'Ver documento'}</span>
+      </button>
+    )
   }
   return (
     <a className="s24-adjunto-doc" href={adjunto.url} target="_blank" rel="noreferrer" download={adjunto.nombre}>

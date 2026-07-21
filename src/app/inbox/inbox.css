@@ -418,6 +418,9 @@
   display: flex; align-items: center; gap: 9px; padding: 9px 11px; border-radius: 10px;
   background: color-mix(in srgb, currentColor 10%, transparent); text-decoration: none; color: inherit;
   font-size: 12.5px; font-weight: 600; margin-bottom: 3px;
+  /* Reset de <button> nativo — este elemento a veces es un <a> (adjunto data: URL propio)
+     y a veces un <button> (adjunto proxeado, ver Adjunto() en page.tsx). */
+  border: none; cursor: pointer; font-family: inherit; text-align: left;
 }
 
 /* ── Lightbox: agrandar una foto a pantalla completa ──────────────────────── */
