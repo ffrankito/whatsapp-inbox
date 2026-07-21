@@ -225,7 +225,13 @@ export default function InboxPage() {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
     if (!clientId || !window.google) return
     window.google.accounts.id.initialize({ client_id: clientId, callback: manejarCredencialGoogle })
-    window.google.accounts.id.renderButton(googleBtnRef.current, { theme: 'outline', size: 'large', text: 'signin_with' })
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
+      theme: 'filled_blue',
+      size: 'large',
+      shape: 'pill',
+      text: 'signin_with',
+      width: 280,
+    })
   }, [googleScriptListo, cargandoAgente, agente, manejarCredencialGoogle])
 
   function cerrarSesion() {
@@ -656,10 +662,10 @@ export default function InboxPage() {
         <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={() => setGoogleScriptListo(true)} />
         <div className="s24-agente-gate">
           <div className="s24-agente-card">
-            <img className="mark" src="/icon.svg" alt="Security24" />
+            <img className="mark" src="/logos24.jpg" alt="Security24" />
             <h1>Inbox WhatsApp</h1>
             <p>Iniciá sesión con tu cuenta de Security24 para continuar.</p>
-            <div ref={googleBtnRef} />
+            <div className="s24-google-btn" ref={googleBtnRef} />
           </div>
         </div>
       </div>
@@ -670,7 +676,7 @@ export default function InboxPage() {
     <div className="s24-inbox">
       <div className="s24-app-top">
         <div className="s24-title">
-          <img className="mark" src="/icon.svg" alt="Security24" />
+          <img className="mark" src="/logos24.jpg" alt="Security24" />
           <div>
             <h1>Inbox WhatsApp</h1>
             <div className="sub">
