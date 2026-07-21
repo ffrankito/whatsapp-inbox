@@ -679,19 +679,19 @@ export default function InboxPage() {
           <img className="mark" src="/logos24.jpg" alt="Security24" />
           <div>
             <h1>Inbox WhatsApp</h1>
-            <div className="sub">
-              Área comercial · Security24 · {agente.nombre}{' '}
-              <button type="button" className="s24-logout" onClick={cerrarSesion}>Cerrar sesión</button>
-            </div>
+            <div className="sub">Área comercial · Security24 · {agente.nombre}</div>
           </div>
         </div>
-        <div className="s24-channel-status">
-          {NUMEROS.map((n) => (
-            <span key={n.id} className="s24-status-pill" data-numero={n.id}>
-              <span className="led" />
-              {n.nombre}
-            </span>
-          ))}
+        <div className="s24-top-right">
+          <div className="s24-channel-status">
+            {NUMEROS.map((n) => (
+              <span key={n.id} className="s24-status-pill" data-numero={n.id}>
+                <span className="led" />
+                {n.nombre}
+              </span>
+            ))}
+          </div>
+          <button type="button" className="s24-logout" onClick={cerrarSesion}>Cerrar sesión</button>
         </div>
       </div>
 

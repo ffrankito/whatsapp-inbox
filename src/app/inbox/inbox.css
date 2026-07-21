@@ -121,11 +121,18 @@
 }
 .s24-title h1 { font-size: 16px; margin: 0; font-weight: 700; color: var(--navy-ink); letter-spacing: -0.01em; }
 .s24-title .sub { font-size: 12px; color: var(--navy-ink-dim); margin-top: 1px; }
+
+.s24-top-right { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+
 .s24-logout {
-  all: unset; cursor: pointer; font-size: 11px; color: var(--navy-ink-dim);
-  text-decoration: underline; margin-left: 4px;
+  all: unset; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--navy-ink-dim);
+  padding: 7px 14px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--navy-ink) 25%, transparent);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.s24-logout:hover { color: var(--navy-ink); }
+.s24-logout:hover {
+  color: var(--navy-ink); border-color: color-mix(in srgb, var(--navy-ink) 45%, transparent);
+  background: color-mix(in srgb, var(--navy-ink) 8%, transparent);
+}
 
 .s24-channel-status { display: flex; gap: 14px; flex-wrap: wrap; }
 
