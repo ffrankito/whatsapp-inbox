@@ -15,6 +15,7 @@
     "@breezystack/lamejs": "^1.2.7",
     "crypto-js": "^4.2.0",
     "drizzle-orm": "^0.45.2",
+    "emoji-picker-react": "^4.19.1",
     "jose": "^6.2.3",
     "next": "16.2.10",
     "postgres": "^3.4.9",

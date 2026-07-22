@@ -81,6 +81,16 @@ export function marcarConversacionVistaDemo(id: string, mensajeId: string): bool
   return true
 }
 
+// Reacción con emoji — en demo no hay waId real de Kapso, se busca por el id propio del
+// mensaje dentro de la conversación. emoji === '' saca la reacción.
+export function reaccionarMensajeDemo(conversationId: string, mensajeId: string, emoji: string): boolean {
+  const conv = encontrarConversacion(conversationId)
+  const mensaje = conv?.mensajes.find((m) => m.id === mensajeId)
+  if (!mensaje) return false
+  mensaje.reaccion = emoji || undefined
+  return true
+}
+
 export function agregarNotaDemo(contactId: string, body: string) {
   // En modo demo la nota no se persiste en ningún lado real — alcanza con loguearla,
   // total en la Fase 6 esto pasa a ser un POST /contacts/{id}/notes de verdad en GHL.

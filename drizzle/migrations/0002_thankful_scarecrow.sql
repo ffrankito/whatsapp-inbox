@@ -1,0 +1,1 @@
+ALTER TABLE "mensajes_standalone" ADD COLUMN "reaccion" text;

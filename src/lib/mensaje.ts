@@ -20,4 +20,8 @@ export type Mensaje = {
   adjunto?: Adjunto
   status?: EstadoMensaje
   waId?: string
+  // Emoji con el que se reaccionó a este mensaje (el agente reacciona desde acá, o el
+  // contacto reacciona desde su WhatsApp y llega por webhook) — string vacío/undefined
+  // significa sin reacción. Ver /api/conversaciones/[id]/reaccion.
+  reaccion?: string
 }

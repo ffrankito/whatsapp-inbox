@@ -32,6 +32,9 @@ export const mensajesStandalone = pgTable('mensajes_standalone', {
   adjunto: jsonb('adjunto').$type<{ url: string; tipo: string; nombre?: string } | null>(),
   status: text('status'),
   waId: text('wa_id'),
+  // Emoji con el que se reaccionó a este mensaje — el agente reacciona desde acá o
+  // el contacto reacciona desde su WhatsApp (llega por webhook, ver parseWebhook.ts).
+  reaccion: text('reaccion'),
 })
 
 export type ConversacionStandaloneRow = typeof conversacionesStandalone.$inferSelect

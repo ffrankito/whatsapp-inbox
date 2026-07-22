@@ -88,6 +88,36 @@ export function parsearMensajeEntrante(payload: any): MensajeKapsoEntrante | nul
   return null
 }
 
+export type ReaccionKapsoEntrante = {
+  phoneNumberId: string
+  messageId: string
+  emoji: string
+}
+
+/**
+ * Parsea una reacción que el CONTACTO le puso a uno de NUESTROS mensajes salientes,
+ * desde su WhatsApp — llega dentro del mismo evento `whatsapp.message.received`, como
+ * un mensaje más con `message.type === 'reaction'` (formato estándar de Meta, no una
+ * extensión de Kapso — ver enviarReaccionPorKapso). `message.reaction.message_id` es el
+ * waId del mensaje NUESTRO al que reaccionaron, no un mensaje nuevo en el hilo.
+ *
+ * NO CONFIRMADO todavía contra un webhook real (a diferencia del resto de este archivo) —
+ * Kapso espeja el formato de Meta para el resto de tipos de mensaje, así que se asume el
+ * mismo shape acá, pero conviene probarlo contra tráfico real antes de darlo por bueno.
+ */
+export function parsearReaccionEntrante(payload: any): ReaccionKapsoEntrante | null {
+  const message = payload?.message
+  const conversation = payload?.conversation
+  if (!message || message.type !== 'reaction') return null
+
+  const phoneNumberId: string | undefined = payload?.phone_number_id ?? conversation?.phone_number_id
+  const messageId: string | undefined = message?.reaction?.message_id
+  if (!phoneNumberId || !messageId) return null
+
+  const emoji: string = message?.reaction?.emoji ?? ''
+  return { phoneNumberId, messageId, emoji }
+}
+
 function etiquetaTipo(tipo: string): string {
   switch (tipo) {
     case 'image': return 'Imagen'

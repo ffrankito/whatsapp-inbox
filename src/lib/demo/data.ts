@@ -9,6 +9,7 @@ export type DemoMensaje = {
   dateAdded: string
   adjunto?: Adjunto
   status?: EstadoMensaje
+  reaccion?: string
 }
 
 export type DemoConversacion = {

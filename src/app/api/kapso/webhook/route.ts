@@ -3,10 +3,10 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { numeroPorPhoneId } from '@/lib/ghl/numeros'
 import { upsertContact, agregarMensajeEntrante } from '@/lib/ghl/client'
 import { STANDALONE_MODE } from '@/lib/mode'
-import { encontrarOCrearConversacion, agregarMensaje, actualizarEstadoMensaje } from '@/lib/standalone/store'
+import { encontrarOCrearConversacion, agregarMensaje, actualizarEstadoMensaje, actualizarReaccionMensaje } from '@/lib/standalone/store'
 import { webhookLimitado } from '@/lib/rateLimit'
 import { emitirEvento } from '@/lib/events'
-import { parsearMensajeEntrante } from '@/lib/kapso/parseWebhook'
+import { parsearMensajeEntrante, parsearReaccionEntrante } from '@/lib/kapso/parseWebhook'
 import type { EstadoMensaje } from '@/lib/mensaje'
 
 // TODO: reemplazar por la location real una vez definido dónde vive cada instalación
@@ -93,6 +93,21 @@ export async function POST(request: NextRequest) {
   try {
     payload = JSON.parse(body)
   } catch {
+    return NextResponse.json({ ok: true })
+  }
+
+  // El contacto reaccionó con un emoji a uno de NUESTROS mensajes salientes (no es un
+  // mensaje nuevo en el hilo, es una actualización de uno existente) — se maneja antes
+  // que parsearMensajeEntrante porque esa función no sabe de reacciones (ver BACKLOG.md,
+  // reacciones con emoji).
+  const reaccion = parsearReaccionEntrante(payload)
+  if (reaccion) {
+    if (STANDALONE_MODE) {
+      const resultado = await actualizarReaccionMensaje(reaccion.messageId, reaccion.emoji)
+      if (resultado) {
+        emitirEvento({ tipo: 'mensaje', numero: resultado.numero })
+      }
+    }
     return NextResponse.json({ ok: true })
   }
 

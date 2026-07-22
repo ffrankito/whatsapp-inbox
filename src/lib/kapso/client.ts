@@ -26,6 +26,35 @@ export async function enviarPorKapso(numero: NumeroWhatsapp, telefono: string, t
 }
 
 /**
+ * Reacciona con un emoji a un mensaje (nuestro o del contacto) — mismo formato estándar
+ * de Meta Cloud API para mensajes de tipo "reaction" (a diferencia de Contacts, esto NO
+ * es una extensión propia de Kapso, así que el shape es el mismo que usa Meta de verdad:
+ * `type: 'reaction', reaction: { message_id, emoji }`). Mandar `emoji: ''` saca una
+ * reacción ya puesta (mismo criterio que la API de Meta).
+ */
+export async function enviarReaccionPorKapso(numero: NumeroWhatsapp, telefono: string, messageId: string, emoji: string) {
+  const res = await fetch(`${KAPSO_BASE}/${numero.phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': numero.kapsoApiKey,
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: telefono,
+      type: 'reaction',
+      reaction: { message_id: messageId, emoji },
+    }),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Kapso ${numero.id} (reaction) -> ${res.status}: ${await res.text()}`)
+  }
+
+  return res.json() as Promise<{ messages?: { id: string }[] }>
+}
+
+/**
  * Sube un archivo a Kapso para poder mandarlo por WhatsApp (confirmado contra el SDK
  * oficial de Kapso, github.com/gokapso/whatsapp-cloud-api-js — POST {phoneNumberId}/media,
  * multipart). Devuelve el media id que después se usa para mandar el mensaje.
@@ -162,8 +191,11 @@ export async function listarContactosKapso(
   numero: NumeroWhatsapp,
   opts: { search?: string; limit?: number } = {},
 ): Promise<ContactoKapso[]> {
+  // Confirmado contra tráfico real: el path /{phoneNumberId}/contacts existe (bien), pero
+  // Kapso rechaza limit=200 con 400 "Invalid limit parameter" — se baja a 50 (mismo valor
+  // del ejemplo de la doc oficial del SDK) hasta confirmar el máximo real permitido.
   const params = new URLSearchParams()
-  if (opts.limit) params.set('limit', String(opts.limit))
+  params.set('limit', String(Math.min(opts.limit ?? 50, 50)))
 
   const res = await fetch(`${KAPSO_BASE}/${numero.phoneNumberId}/contacts?${params.toString()}`, {
     headers: { 'X-API-Key': numero.kapsoApiKey },

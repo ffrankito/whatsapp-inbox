@@ -358,6 +358,27 @@
   border-radius: 999px; background: rgba(0, 0, 0, 0.45); color: #fff; opacity: 1;
 }
 
+/* ── Fila de burbuja + reaccionar (envuelve .s24-bubble para poder agregar el botón
+   y el popover al lado sin romper el alineado izquierda/derecha existente) ────────── */
+.s24-bubble-row { display: flex; align-items: flex-end; gap: 4px; max-width: 68%; position: relative; }
+.s24-bubble-row[data-direction="inbound"] { align-self: flex-start; }
+.s24-bubble-row[data-direction="outbound"] { align-self: flex-end; flex-direction: row-reverse; }
+.s24-bubble-row .s24-bubble { align-self: auto; max-width: 100%; }
+.s24-reaccionar-btn {
+  all: unset; cursor: pointer; font-size: 15px; opacity: 0; transition: opacity 0.12s ease;
+  flex: none; padding: 4px; border-radius: 50%; align-self: center; line-height: 1;
+}
+.s24-bubble-row:hover .s24-reaccionar-btn { opacity: 0.75; }
+.s24-reaccionar-btn:hover { opacity: 1 !important; background: var(--surface); }
+.s24-reaccion-badge {
+  position: absolute; bottom: -9px; right: 8px; font-size: 13px; z-index: 1;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+  padding: 1px 5px; box-shadow: var(--shadow-sm); line-height: 1.3;
+}
+.s24-emoji-popover { position: absolute; z-index: 30; bottom: calc(100% + 6px); }
+.s24-bubble-row[data-direction="outbound"] .s24-emoji-popover { right: 0; }
+.s24-bubble-row[data-direction="inbound"] .s24-emoji-popover { left: 0; }
+
 .s24-tick { font-weight: 700; letter-spacing: -1px; }
 .s24-tick.read { color: var(--read-tick); }
 .s24-tick.failed { color: #ffb4a8; letter-spacing: 0; }

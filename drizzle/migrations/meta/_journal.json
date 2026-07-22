@@ -15,6 +15,13 @@
       "when": 1784645081781,
       "tag": "0001_graceful_dark_phoenix",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784722385764,
+      "tag": "0002_thankful_scarecrow",
+      "breakpoints": true
     }
   ]
 }

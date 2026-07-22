@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Script from 'next/script'
+import EmojiPicker from 'emoji-picker-react'
 import './inbox.css'
 
 // NOTA: los nombres de campo de GHL (ConversationSchema / GetMessageResponseDto) están
@@ -47,6 +48,7 @@ type Mensaje = {
   dateAdded: string
   adjunto?: Adjunto
   status?: EstadoMensaje
+  reaccion?: string
 }
 
 // Tipado mínimo del SDK de Google Identity Services (no hay @types oficial) — solo lo
@@ -107,7 +109,7 @@ function mensajesIguales(a: Mensaje[], b: Mensaje[]): boolean {
   if (a.length !== b.length) return false
   return a.every((m, i) => {
     const n = b[i]
-    return m.id === n.id && m.status === n.status
+    return m.id === n.id && m.status === n.status && m.reaccion === n.reaccion
   })
 }
 
@@ -159,6 +161,8 @@ export default function InboxPage() {
   // Agenda de contactos (Kapso) del número activo — vista alternativa a la lista de
   // conversaciones, no un panel aparte, para no romper el layout de 3 columnas ya armado.
   const [vistaAgenda, setVistaAgenda] = useState(false)
+  // Id del mensaje cuyo picker de emoji está abierto (uno solo a la vez).
+  const [reaccionandoMensajeId, setReaccionandoMensajeId] = useState<string | null>(null)
   const ultimoTypingRef = useRef(0)
 
   // ── Grabar y mandar audio (paridad con Huellas de Paz) ───────────────────
@@ -363,6 +367,23 @@ export default function InboxPage() {
       // silencioso: el próximo evento/poll de respaldo reintenta
     }
   }, [])
+
+  // Reaccionar (o sacar la reacción, si ya tenía puesto el mismo emoji — ver el toggle
+  // en el onEmojiClick del picker) a un mensaje del hilo activo.
+  async function reaccionar(mensajeId: string, emoji: string) {
+    if (!seleccionadaId) return
+    setReaccionandoMensajeId(null)
+    try {
+      await fetch(`/api/conversaciones/${seleccionadaId}/reaccion`, {
+        method: 'POST',
+        headers: headersConAgente({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ mensajeId, emoji }),
+      })
+      await cargarMensajes(seleccionadaId)
+    } catch {
+      // silencioso: si falla, la reacción no queda puesta y se puede reintentar
+    }
+  }
 
   // ── Lista de conversaciones: carga inicial + poll de respaldo lento ──────
   useEffect(() => {
@@ -860,15 +881,36 @@ export default function InboxPage() {
                     </>
                   )
                   return (
-                    <div
-                      key={m.id}
-                      className={`s24-bubble ${m.direction === 'inbound' ? 'in' : 'out'}`}
-                      data-media={String(!!esMediaVisual)}
-                    >
-                      {m.adjunto && <Adjunto adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} onAbrirDocumento={abrirDocumento} />}
-                      {esMediaVisual && !caption && <span className="t sobre-media">{horaTick}</span>}
-                      {caption && <span className="s24-bubble-text">{caption}</span>}
-                      {!(esMediaVisual && !caption) && <span className="t">{horaTick}</span>}
+                    <div key={m.id} className="s24-bubble-row" data-direction={m.direction}>
+                      <div
+                        className={`s24-bubble ${m.direction === 'inbound' ? 'in' : 'out'}`}
+                        data-media={String(!!esMediaVisual)}
+                      >
+                        {m.adjunto && <Adjunto adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} onAbrirDocumento={abrirDocumento} />}
+                        {esMediaVisual && !caption && <span className="t sobre-media">{horaTick}</span>}
+                        {caption && <span className="s24-bubble-text">{caption}</span>}
+                        {!(esMediaVisual && !caption) && <span className="t">{horaTick}</span>}
+                        {m.reaccion && <span className="s24-reaccion-badge">{m.reaccion}</span>}
+                      </div>
+                      {puedeEscribir && (
+                        <button
+                          type="button"
+                          className="s24-reaccionar-btn"
+                          onClick={() => setReaccionandoMensajeId(reaccionandoMensajeId === m.id ? null : m.id)}
+                          title="Reaccionar"
+                        >
+                          🙂
+                        </button>
+                      )}
+                      {reaccionandoMensajeId === m.id && (
+                        <div className="s24-emoji-popover">
+                          <EmojiPicker
+                            onEmojiClick={(data) => reaccionar(m.id, m.reaccion === data.emoji ? '' : data.emoji)}
+                            width={300}
+                            height={360}
+                          />
+                        </div>
+                      )}
                     </div>
                   )
                 })}

@@ -21,6 +21,7 @@ export type StandaloneMensaje = {
   adjunto?: Adjunto
   status?: EstadoMensaje
   waId?: string
+  reaccion?: string
 }
 
 export type StandaloneConversacion = {
@@ -61,6 +62,7 @@ function aStandaloneMensaje(row: typeof mensajesStandalone.$inferSelect): Standa
     adjunto: (row.adjunto as Adjunto | null) ?? undefined,
     status: (row.status as EstadoMensaje | null) ?? undefined,
     waId: row.waId ?? undefined,
+    reaccion: row.reaccion ?? undefined,
   }
 }
 
@@ -168,6 +170,22 @@ export async function actualizarEstadoMensaje(waId: string, status: EstadoMensaj
   const [actualizado] = await db()
     .update(mensajesStandalone)
     .set({ status })
+    .where(eq(mensajesStandalone.waId, waId))
+    .returning({ conversacionId: mensajesStandalone.conversacionId })
+  if (!actualizado) return null
+
+  const [conv] = await db().select({ numero: conversacionesStandalone.numero }).from(conversacionesStandalone).where(eq(conversacionesStandalone.id, actualizado.conversacionId))
+  return conv ? { numero: conv.numero as NumeroId } : null
+}
+
+// Reacción con emoji a un mensaje — mismo criterio que actualizarEstadoMensaje: cruza
+// por waId (funciona tanto para reaccionar a un mensaje saliente nuestro, como para
+// cuando el CONTACTO reacciona a uno de esos mensajes desde su WhatsApp, vía webhook).
+// emoji === '' saca la reacción (mismo criterio que la API de Meta/Kapso).
+export async function actualizarReaccionMensaje(waId: string, emoji: string): Promise<{ numero: NumeroId } | null> {
+  const [actualizado] = await db()
+    .update(mensajesStandalone)
+    .set({ reaccion: emoji || null })
     .where(eq(mensajesStandalone.waId, waId))
     .returning({ conversacionId: mensajesStandalone.conversacionId })
   if (!actualizado) return null
