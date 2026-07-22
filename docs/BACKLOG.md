@@ -17,13 +17,16 @@ mueve al `ROADMAP.md` en la fase que corresponda.
    autohospedado (gratis, más infra) vs API paga (casi gratis, mucho más simple).
 4. Saludo automático con el nombre del agente al tomar una conversación.
 5. Aviso al cliente cuando se traspasa la conversación a otro agente.
-6. Mensajes de plantilla (HSM) para reabrir conversaciones fuera de la ventana de 24hs de
-   WhatsApp. **En progreso**: plantilla `reabrir_conversacion` (categoría UTILITY, texto
-   "Hola {{nombre}}, ¿cómo estás? Te escribimos de Security24") ya creada y mandada a
-   revisión de Meta — id `887680860605104`, WABA `191950227325628`, estado `PENDING`.
-   Falta: confirmar aprobación de Meta, armar `enviarPlantillaPorKapso` en
-   kapso/client.ts, la ruta para iniciar conversación nueva desde la agenda, y el botón
-   en la UI para los contactos sin chat todavía.
+6. ~~Mensajes de plantilla (HSM) para reabrir conversaciones fuera de la ventana de 24hs
+   de WhatsApp~~ — **hecho para Full App**: plantilla `reabrir_conversacion` aprobada por
+   Meta (`APPROVED`, categoría final `MARKETING` — Meta la recategorizó de UTILITY
+   durante la revisión, id `887680860605104`, WABA `191950227325628`, idioma `es_AR`,
+   parámetro NAMED `nombre`). `enviarPlantillaPorKapso` en kapso/client.ts, botón
+   "Iniciar conversación" en la Agenda para contactos sin chat, `POST
+   /api/contactos/[waId]/conversacion`. La plantilla queda configurada por número vía
+   env vars (`WA_<PREFIX>_TEMPLATE_REABRIR*`) — falta repetir el trámite de aprobación
+   en Meta para Dealers y Abonados cuando haga falta arrancar conversaciones ahí
+   también.
 7. Mensaje automático fuera de horario de atención — distinto según si se detecta algo
    urgente (ver #9), configurable por línea de negocio y por horario/feriados; si es
    urgente, escalar de verdad a un celular de guardia, no solo dejarlo en la cola.

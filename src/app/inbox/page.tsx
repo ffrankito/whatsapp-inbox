@@ -1362,6 +1362,8 @@ function Agenda({
   const [nombreEdit, setNombreEdit] = useState('')
   const [abriendoWaId, setAbriendoWaId] = useState<string | null>(null)
   const [sinConversacionWaId, setSinConversacionWaId] = useState<string | null>(null)
+  const [iniciandoWaId, setIniciandoWaId] = useState<string | null>(null)
+  const [errorIniciar, setErrorIniciar] = useState<{ waId: string; mensaje: string } | null>(null)
   // waId de contactos que aparecieron por primera vez desde que se abrió la agenda de
   // este número (para marcarlos "Nuevo") — se arma comparando contra la carga anterior,
   // nunca contra la primerísima carga (si no, todos arrancarían marcados como nuevos).
@@ -1493,6 +1495,29 @@ function Agenda({
       .finally(() => setAbriendoWaId(null))
   }
 
+  // Manda el mensaje de plantilla aprobado por Meta para arrancar la conversación (ver
+  // docs/BACKLOG.md #6) — es la única forma de escribirle primero a alguien en WhatsApp.
+  function iniciarConversacion(c: ContactoAgenda) {
+    setIniciandoWaId(c.waId)
+    setErrorIniciar(null)
+    fetch(`/api/contactos/${encodeURIComponent(c.waId)}/conversacion?numero=${numero}`, {
+      method: 'POST',
+      headers: headersConAgente({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ nombre: c.displayName || c.profileName }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'No se pudo iniciar la conversación')
+        return data
+      })
+      .then((data) => {
+        setSinConversacionWaId(null)
+        onAbrirConversacion(data.conversacionId)
+      })
+      .catch((err: Error) => setErrorIniciar({ waId: c.waId, mensaje: err.message }))
+      .finally(() => setIniciandoWaId(null))
+  }
+
   return (
     <div className="s24-agenda">
       <input
@@ -1546,7 +1571,18 @@ function Agenda({
               </button>
             )}
             {sinConversacionWaId === c.waId ? (
-              <span className="s24-agenda-sin-conv">Sin conversación todavía</span>
+              errorIniciar?.waId === c.waId ? (
+                <span className="s24-agenda-error" title={errorIniciar.mensaje}>{errorIniciar.mensaje}</span>
+              ) : (
+                <button
+                  type="button"
+                  className="s24-agenda-btn-iniciar"
+                  onClick={() => iniciarConversacion(c)}
+                  disabled={iniciandoWaId === c.waId}
+                >
+                  {iniciandoWaId === c.waId ? 'Mandando…' : 'Iniciar conversación'}
+                </button>
+              )
             ) : (
               <button
                 type="button"

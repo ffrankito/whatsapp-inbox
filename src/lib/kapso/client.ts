@@ -58,6 +58,60 @@ export async function enviarPorKapso(numero: NumeroWhatsapp, telefono: string, t
 }
 
 /**
+ * Manda un mensaje de plantilla (HSM) — el único tipo de mensaje que WhatsApp permite
+ * para arrancar una conversación nueva o reabrir una fuera de la ventana de 24hs (ver
+ * docs/BACKLOG.md #6). A diferencia de enviarPorKapso, esto solo funciona con una
+ * plantilla ya aprobada por Meta de antemano, no con texto libre.
+ *
+ * `parametros` son named params (`parameter_format: NAMED` al crear la plantilla en
+ * Meta) — confirmado contra la doc de Kapso (docs.kapso.ai, sección "Simple text"):
+ * cada uno va como `{ type: 'text', parameter_name, text }`, no posicional `{{1}}`.
+ */
+export async function enviarPlantillaPorKapso(
+  numero: NumeroWhatsapp,
+  telefono: string,
+  nombrePlantilla: string,
+  idioma: string,
+  parametros: Record<string, string> = {},
+) {
+  const res = await fetch(`${KAPSO_BASE}/${numero.phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': numero.kapsoApiKey,
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: telefono,
+      type: 'template',
+      template: {
+        name: nombrePlantilla,
+        language: { code: idioma },
+        components:
+          Object.keys(parametros).length > 0
+            ? [
+                {
+                  type: 'body',
+                  parameters: Object.entries(parametros).map(([parameter_name, text]) => ({
+                    type: 'text',
+                    parameter_name,
+                    text,
+                  })),
+                },
+              ]
+            : undefined,
+      },
+    }),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Kapso ${numero.id} (template) -> ${res.status}: ${await res.text()}`)
+  }
+
+  return res.json() as Promise<{ messages?: { id: string }[] }>
+}
+
+/**
  * Reacciona con un emoji a un mensaje (nuestro o del contacto) — mismo formato estándar
  * de Meta Cloud API para mensajes de tipo "reaction" (a diferencia de Contacts, esto NO
  * es una extensión propia de Kapso, así que el shape es el mismo que usa Meta de verdad:

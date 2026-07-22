@@ -295,6 +295,16 @@
 .s24-agenda-btn:hover { background: var(--surface-soft); }
 .s24-agenda-btn:disabled { opacity: 0.5; cursor: default; }
 .s24-agenda-sin-conv { font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
+.s24-agenda-btn-iniciar {
+  all: unset; cursor: pointer; font-size: 11px; font-weight: 600; white-space: nowrap;
+  padding: 6px 10px; border-radius: 999px; color: var(--accent-ink); background: var(--accent);
+}
+.s24-agenda-btn-iniciar:hover { background: var(--accent-2); }
+.s24-agenda-btn-iniciar:disabled { opacity: 0.6; cursor: default; }
+.s24-agenda-error {
+  font-size: 10.5px; color: var(--critical); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 140px;
+}
 
 /* ── Panel del hilo ───────────────────────────────────────────────────────── */
 .s24-thread { display: flex; flex-direction: column; min-height: 0; background: var(--surface); position: relative; }
