@@ -161,6 +161,9 @@ export default function InboxPage() {
   // Agenda de contactos (Kapso) del número activo — vista alternativa a la lista de
   // conversaciones, no un panel aparte, para no romper el layout de 3 columnas ya armado.
   const [vistaAgenda, setVistaAgenda] = useState(false)
+  // Bump para que la Agenda se refresque sola cuando llega un evento SSE del número
+  // activo (mensaje nuevo) — ver el useEffect de "Tiempo real" más abajo.
+  const [agendaRefreshTick, setAgendaRefreshTick] = useState(0)
   // Picker de emoji compartido — uno solo a la vez, se renderiza como panel fijo (no
   // pegado a cada burbuja) para no depender de la posición dentro de .s24-bubbles, que
   // hace scroll y lo cortaba/desalineaba. Sirve tanto para reaccionar a un mensaje como
@@ -450,6 +453,10 @@ export default function InboxPage() {
         if (evento?.numero !== numeroActivoRef.current) return
         cargarConversaciones()
         if (seleccionadaIdRef.current) cargarMensajes(seleccionadaIdRef.current)
+        // La agenda de contactos también reacciona a mensajes nuevos del número activo
+        // (un contacto nuevo se agrega solo a la agenda de Kapso apenas escribe) — ver
+        // el prop refreshSignal en <Agenda>.
+        setAgendaRefreshTick((t) => t + 1)
       } catch {
         // evento no parseable (ej. el ping), se ignora
       }
@@ -768,6 +775,7 @@ export default function InboxPage() {
             <Agenda
               numero={numeroActivo}
               headersConAgente={headersConAgente}
+              refreshSignal={agendaRefreshTick}
               onAbrirConversacion={(id) => {
                 setFiltroAgenteId('')
                 setSeleccionadaId(id)
@@ -1146,10 +1154,12 @@ type ContactoAgenda = { id: string; waId: string; profileName?: string; customer
 function Agenda({
   numero,
   headersConAgente,
+  refreshSignal,
   onAbrirConversacion,
 }: {
   numero: NumeroId
   headersConAgente: (extra?: Record<string, string>) => Record<string, string>
+  refreshSignal: number
   onAbrirConversacion: (conversacionId: string) => void
 }) {
   const [contactos, setContactos] = useState<ContactoAgenda[]>([])
@@ -1160,6 +1170,12 @@ function Agenda({
   const [nombreEdit, setNombreEdit] = useState('')
   const [abriendoWaId, setAbriendoWaId] = useState<string | null>(null)
   const [sinConversacionWaId, setSinConversacionWaId] = useState<string | null>(null)
+  // waId de contactos que aparecieron por primera vez desde que se abrió la agenda de
+  // este número (para marcarlos "Nuevo") — se arma comparando contra la carga anterior,
+  // nunca contra la primerísima carga (si no, todos arrancarían marcados como nuevos).
+  const [nuevosWaIds, setNuevosWaIds] = useState<Set<string>>(new Set())
+  const vistosRef = useRef<Set<string>>(new Set())
+  const primeraCargaRef = useRef(true)
 
   // A prueba de carreras, no de timing (mismo criterio que el cambio de número de
   // conversaciones): guarda cuál es el número "vigente" para poder ignorar una
@@ -1167,6 +1183,7 @@ function Agenda({
   // las respuestas lleguen en el mismo orden en que se pidieron.
   const numeroRef = useRef(numero)
   const prevNumeroRef = useRef(numero)
+  const prevRefreshSignalRef = useRef(refreshSignal)
   useEffect(() => {
     numeroRef.current = numero
   }, [numero])
@@ -1181,7 +1198,20 @@ function Agenda({
         .then((res) => (res.ok ? res.json() : Promise.reject()))
         .then((data) => {
           if (numeroRef.current !== numeroPedido) return
-          setContactos(data.contactos ?? [])
+          const lista: ContactoAgenda[] = data.contactos ?? []
+          if (primeraCargaRef.current) {
+            // Primera carga de este número: se toma como línea de base, nadie arranca
+            // marcado como "nuevo".
+            vistosRef.current = new Set(lista.map((c) => c.waId))
+            primeraCargaRef.current = false
+          } else {
+            const nuevos = lista.filter((c) => !vistosRef.current.has(c.waId)).map((c) => c.waId)
+            if (nuevos.length > 0) {
+              setNuevosWaIds((prev) => new Set([...prev, ...nuevos]))
+              nuevos.forEach((id) => vistosRef.current.add(id))
+            }
+          }
+          setContactos(lista)
         })
         .catch(() => {
           if (numeroRef.current === numeroPedido) setError(true)
@@ -1201,7 +1231,11 @@ function Agenda({
     if (numeroCambio) {
       // Cambiar de número no es "tipear" — se limpia y recarga al toque, sin esperar
       // el debounce (si no, se ve la agenda vieja un instante, que es justo el bug).
+      // También reinicia la línea de base de "nuevo" — es por número, no global.
       setContactos([])
+      setNuevosWaIds(new Set())
+      vistosRef.current = new Set()
+      primeraCargaRef.current = true
       if (busqueda) setBusqueda('')
       cargarContactos(numero, '')
       return
@@ -1210,6 +1244,26 @@ function Agenda({
     const t = setTimeout(() => cargarContactos(numero, busqueda), 250)
     return () => clearTimeout(t)
   }, [numero, busqueda, cargarContactos])
+
+  // Refresco en tiempo real: cuando llega un mensaje del número activo (mismo evento
+  // SSE que usa el chat), la agenda se recarga sola — un contacto nuevo se agrega solo
+  // al directorio de Kapso apenas escribe, así que reaparece acá sin que nadie recargue
+  // la página. Sin debounce: no es "tipear", es un evento puntual.
+  useEffect(() => {
+    if (prevRefreshSignalRef.current === refreshSignal) return
+    prevRefreshSignalRef.current = refreshSignal
+    cargarContactos(numero, busqueda)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal])
+
+  function descartarNuevo(waId: string) {
+    setNuevosWaIds((prev) => {
+      if (!prev.has(waId)) return prev
+      const next = new Set(prev)
+      next.delete(waId)
+      return next
+    })
+  }
 
   function empezarEdicion(c: ContactoAgenda) {
     setEditandoWaId(c.waId)
@@ -1257,9 +1311,14 @@ function Agenda({
       {!cargando && error && <div className="empty">No se pudo cargar la agenda.</div>}
       {!cargando && !error && contactos.length === 0 && <div className="empty">Sin contactos todavía.</div>}
       {!cargando && !error && contactos.map((c) => (
-        <div key={c.id} className="s24-agenda-item">
+        <div
+          key={c.id}
+          className="s24-agenda-item"
+          onClick={() => nuevosWaIds.has(c.waId) && descartarNuevo(c.waId)}
+        >
           <span className="s24-avatar">{iniciales(c.profileName || c.waId)}</span>
           <div className="s24-agenda-info">
+            {nuevosWaIds.has(c.waId) && <span className="s24-chip unread">Nuevo</span>}
             {editandoWaId === c.waId ? (
               <input
                 className="s24-agenda-nombre-input"
