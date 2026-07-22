@@ -65,4 +65,27 @@ mueve al `ROADMAP.md` en la fase que corresponda.
 15. Logs estructurados + reintentos cuando falla un envío a Kapso/GHL (hoy se pierde en
     silencio).
 16. Tests automatizados para la lógica de bloqueo entre agentes y el parser de Kapso.
-17. Validación de variables de entorno al arrancar (falla rápido y claro si falta algo).
+17. ~~Validación de variables de entorno al arrancar~~ — **hecho**: `src/instrumentation.ts`
+    (hook oficial de Next.js, corre una vez al levantar el proceso) valida que estén
+    SESSION_SECRET/NEXT_PUBLIC_GOOGLE_CLIENT_ID/GOOGLE_ALLOWED_DOMAIN siempre, más
+    DATABASE_URL/KAPSO_APP_SECRET/al menos un número completo en STANDALONE_MODE — si
+    falta algo, el proceso ni arranca, en vez de fallar en silencio en medio de una
+    prueba (como pasó hoy con SESSION_SECRET). Sin probar en runtime todavía (no se
+    corrió local esta noche a pedido explícito) — confirmar en el próximo deploy que
+    tira el error esperado si falta algo.
+18. Del review de esta noche sobre todo lo que sumó la sesión en paralelo (contactos,
+    reacciones, adjuntos guardados en base): **arreglado** un bug real donde los
+    documentos entrantes persistidos como `data:` URL volvían a forzar "Guardar como"
+    (mismo bug que ya se había resuelto para los que quedan como link de Kapso) — se
+    sacó el atributo `download` de esa rama y se armó `src/lib/mime.ts` compartido para
+    inferir el Content-Type por extensión en los dos casos. También se agregó el chequeo
+    de dueño que le faltaba a `POST /api/contactos/[waId]/conversacion` (cualquier
+    agente podía mandarle una plantilla a una conversación tomada por otro).
+19. Pendiente, no bloqueante: `src/app/inbox/page.tsx` ya tiene ~1800 líneas — conviene
+    partirlo en componentes/hooks separados antes de que siga creciendo, pero es un
+    refactor grande que no se hizo esta noche a propósito (riesgo de romper algo justo
+    antes de una prueba en vivo). Guardar todos los adjuntos como `data:` (base64) en una
+    sola columna jsonb de Postgres también puede volverse un problema de escala con
+    tráfico real — cada `listarConversaciones()` trae ese blob completo aunque solo haga
+    falta el texto — conviene evaluar mover a storage de objetos (S3/R2/etc.) más
+    adelante si el volumen crece.

@@ -1,5 +1,6 @@
 import type { NumeroWhatsapp } from '@/lib/ghl/numeros'
 import type { TipoAdjunto } from '@/lib/mensaje'
+import { inferirContentType } from '@/lib/mime'
 
 const KAPSO_BASE = 'https://api.kapso.ai/meta/whatsapp/v24.0'
 // Igual que TAMANO_MAXIMO en la ruta de adjuntos salientes — si el archivo entrante es
@@ -16,8 +17,13 @@ const TAMANO_MAXIMO_DESCARGA = 16 * 1024 * 1024
  * Kapso siga sirviendo el archivo indefinidamente (no hay confirmación de cuánto dura).
  * Devuelve null si falla o el archivo es demasiado grande — el caller debe hacer
  * fallback al link original de Kapso en ese caso, no perder el mensaje entero.
+ *
+ * `nombreArchivo` es opcional, se usa solo para inferir el Content-Type por extensión si
+ * Kapso no manda uno específico (ver src/lib/mime.ts) — sin esto, un PDF con Content-Type
+ * genérico quedaría guardado como "application/octet-stream" y el navegador lo trataría
+ * como binario desconocido (fuerza descarga) en vez de mostrarlo inline.
  */
-export async function descargarComoDataUrl(url: string): Promise<string | null> {
+export async function descargarComoDataUrl(url: string, nombreArchivo?: string): Promise<string | null> {
   try {
     const res = await fetch(url)
     if (!res.ok) return null
@@ -28,7 +34,7 @@ export async function descargarComoDataUrl(url: string): Promise<string | null> 
     const buffer = Buffer.from(await res.arrayBuffer())
     if (buffer.byteLength > TAMANO_MAXIMO_DESCARGA) return null
 
-    const mime = res.headers.get('content-type')?.split(';')[0]?.trim() || 'application/octet-stream'
+    const mime = inferirContentType(nombreArchivo, res.headers.get('content-type')?.split(';')[0]?.trim())
     return `data:${mime};base64,${buffer.toString('base64')}`
   } catch {
     return null

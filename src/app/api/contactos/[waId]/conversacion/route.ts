@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { NUMEROS, type NumeroId } from '@/lib/ghl/numeros'
 import { agenteActual } from '@/lib/agente'
-import { idParaTelefono, obtenerConversacion, encontrarOCrearConversacion, agregarMensaje } from '@/lib/standalone/store'
+import { idParaTelefono, obtenerConversacion, encontrarOCrearConversacion, agregarMensaje, puedeEscribir } from '@/lib/standalone/store'
 import { pedidoConfiable } from '@/lib/csrf'
 import { accionLimitada } from '@/lib/rateLimit'
 import { enviarPlantillaPorKapso } from '@/lib/kapso/client'
@@ -62,6 +62,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Esa plantilla no existe para este número' }, { status: 400 })
   }
   const nombreParaSaludo: string = nombre?.trim() || waId
+
+  // Si la conversación ya existe y está tomada por OTRO agente, no se puede mandar nada
+  // ahí — mismo criterio de dueño que responder/adjunto/reaccion/notas (ver
+  // ARCHITECTURE.md §18). Si no existe todavía (contacto nuevo desde la Agenda) o está
+  // sin_asignar, no hay dueño que proteger, se puede arrancar sin más.
+  const existente = await obtenerConversacion(idParaTelefono(numeroId!, waId))
+  if (existente && !puedeEscribir(existente, agente.id) && existente.estado === 'asignada') {
+    return NextResponse.json({ error: 'Esta conversación está asignada a otro agente' }, { status: 423 })
+  }
 
   const conv = await encontrarOCrearConversacion(numeroId!, waId, nombre?.trim() || undefined)
 

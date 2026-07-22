@@ -314,7 +314,7 @@ export default function InboxPage() {
 
       fetch('/api/ghl/session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-s24-inbox': '1' },
         body: JSON.stringify({ encryptedPayload }),
       })
         .then((res) => setSsoListo(res.ok))
@@ -548,18 +548,38 @@ export default function InboxPage() {
   // libre (antes dejaba responder a cualquiera mientras nadie más la hubiera tomado).
   const puedeEscribir = !!seleccionada && seleccionada.estado === 'asignada' && esMia
 
+  // "Ahora" como estado (no Date.now() directo durante el render, que el compilador de
+  // React marca como impuro) — se actualiza solo cada un minuto, de sobra para algo que
+  // se mide en horas. Arranca en null (no en Date.now()) para no llamar algo impuro ni
+  // siquiera en el valor inicial; hasta que el efecto corre la primera vez, se asume la
+  // ventana abierta (evita un parpadeo mostrando "cerrada" antes de tiempo).
+  const [ahora, setAhora] = useState<number | null>(null)
+  useEffect(() => {
+    // Leer el reloj no se puede derivar del render (es justamente lo impuro que se
+    // está evitando ahí) — tiene que vivir en un efecto sí o sí.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAhora(Date.now())
+    const interval = setInterval(() => setAhora(Date.now()), 60_000)
+    return () => clearInterval(interval)
+  }, [])
+
   // WhatsApp solo deja mandar texto libre hasta 24hs después del último mensaje que
   // mandó el CONTACTO (no el agente) — pasado eso, hace falta un mensaje de plantilla
   // para "reactivar" la conversación (ver docs/BACKLOG.md #6). Si nunca hubo un mensaje
   // entrante (ej. una conversación recién arrancada con plantilla, todavía sin
   // respuesta) se trata igual que ventana cerrada — es la misma regla real de Meta.
-  const ultimoInboundEn = useMemo(() => {
-    for (let i = mensajes.length - 1; i >= 0; i--) {
-      if (mensajes[i].direction === 'inbound') return new Date(mensajes[i].dateAdded).getTime()
+  // Sin useMemo a propósito: el compilador de React no podía preservar la memoización acá
+  // (efecto colateral de tener el estado de "ahora" cerca) — de todas formas es un loop
+  // sobre a lo sumo un puñado de cientos de mensajes, recalcularlo en cada render no
+  // cuesta nada.
+  let ultimoInboundEn: number | null = null
+  for (let i = mensajes.length - 1; i >= 0; i--) {
+    if (mensajes[i].direction === 'inbound') {
+      ultimoInboundEn = new Date(mensajes[i].dateAdded).getTime()
+      break
     }
-    return null
-  }, [mensajes])
-  const ventanaAbierta = ultimoInboundEn !== null && Date.now() - ultimoInboundEn < 24 * 60 * 60 * 1000
+  }
+  const ventanaAbierta = ahora === null || (ultimoInboundEn !== null && ahora - ultimoInboundEn < 24 * 60 * 60 * 1000)
   // Gatea específicamente el composer de texto libre — el resto de las acciones
   // (notas, reacciones, liberar/cerrar) no dependen de la ventana de 24hs, solo de ser
   // el dueño de la conversación (puedeEscribir).
@@ -1747,8 +1767,10 @@ function Adjunto({
   }
   // Los documentos que llegan de Kapso son una URL http(s) externa — hay que pasar por
   // el proxy para que se abran inline (ver /api/adjunto/proxy). Los que mandamos nosotros
-  // en modo standalone quedan como `data:` URL propia (sin storage externo, ver
-  // ARCHITECTURE.md §17) — esos no necesitan proxy, se linkean directo.
+  // (o los que llegaron y ya se persistieron como copia propia, ver descargarComoDataUrl)
+  // quedan como `data:` URL — esos no pasan por el proxy (no hay nada que proxear), pero
+  // tienen que abrir inline igual: SIN el atributo `download`, si no el navegador fuerza
+  // "Guardar como" para cualquier data: URL sin importar el tipo de archivo.
   if (adjunto.url.startsWith('http://') || adjunto.url.startsWith('https://')) {
     return (
       <button type="button" className="s24-adjunto-doc" onClick={() => onAbrirDocumento(mensajeId)}>
@@ -1757,8 +1779,8 @@ function Adjunto({
     )
   }
   return (
-    <a className="s24-adjunto-doc" href={adjunto.url} target="_blank" rel="noreferrer" download={adjunto.nombre}>
-      📄 <span>{adjunto.nombre || 'Descargar documento'}</span>
+    <a className="s24-adjunto-doc" href={adjunto.url} target="_blank" rel="noreferrer">
+      📄 <span>{adjunto.nombre || 'Ver documento'}</span>
     </a>
   )
 }

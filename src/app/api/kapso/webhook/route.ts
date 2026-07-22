@@ -17,7 +17,7 @@ import type { Adjunto, EstadoMensaje } from '@/lib/mensaje'
 // de perder el adjunto por completo.
 async function conAdjuntoPersistido(adjunto: Adjunto | undefined): Promise<Adjunto | undefined> {
   if (!adjunto) return adjunto
-  const dataUrl = await descargarComoDataUrl(adjunto.url)
+  const dataUrl = await descargarComoDataUrl(adjunto.url, adjunto.nombre)
   return dataUrl ? { ...adjunto, url: dataUrl } : adjunto
 }
 

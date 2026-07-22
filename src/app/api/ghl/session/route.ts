@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { decryptGhlUserContext } from '@/lib/ghl/sso'
 import { crearSessionToken, SESSION_COOKIE } from '@/lib/session'
+import { pedidoConfiable } from '@/lib/csrf'
+import { accionLimitada } from '@/lib/rateLimit'
 
 export async function POST(request: NextRequest) {
+  if (!pedidoConfiable(request)) {
+    return NextResponse.json({ error: 'Origen no confiable' }, { status: 403 })
+  }
+  if (accionLimitada(request, 'ghl-session')) {
+    return NextResponse.json({ error: 'rate limited' }, { status: 429 })
+  }
+
   const { encryptedPayload } = await request.json()
   if (!encryptedPayload) {
     return NextResponse.json({ error: 'Falta encryptedPayload' }, { status: 400 })

@@ -5,6 +5,7 @@ import { obtenerConversacion as obtenerStandalone } from '@/lib/standalone/store
 import { pedidoConfiable } from '@/lib/csrf'
 import { accionLimitada } from '@/lib/rateLimit'
 import { agenteActual } from '@/lib/agente'
+import { inferirContentType } from '@/lib/mime'
 
 // Kapso espeja los adjuntos entrantes a una URL propia (ver parseWebhook.ts) — nunca se
 // re-hostea en storage propio (ARCHITECTURE.md §17). Esta ruta existe solo para que los
@@ -18,27 +19,6 @@ const KAPSO_HOST_SUFFIX = '.kapso.ai'
 
 function esHostKapsoConfiable(hostname: string): boolean {
   return hostname === 'kapso.ai' || hostname.endsWith(KAPSO_HOST_SUFFIX)
-}
-
-const MIME_POR_EXTENSION: Record<string, string> = {
-  pdf: 'application/pdf',
-  doc: 'application/msword',
-  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  xls: 'application/vnd.ms-excel',
-  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  ppt: 'application/vnd.ms-powerpoint',
-  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  txt: 'text/plain',
-  csv: 'text/csv',
-}
-
-function inferirContentType(nombre: string | undefined, contentTypeDeKapso: string | null): string {
-  // "application/octet-stream" es lo que manda cualquier server que no supo inferir el
-  // tipo — no sirve para que el navegador elija el visor nativo, así que en ese caso (o
-  // si directamente no vino el header) se intenta inferir por extensión del nombre.
-  if (contentTypeDeKapso && contentTypeDeKapso !== 'application/octet-stream') return contentTypeDeKapso
-  const extension = nombre?.split('.').pop()?.toLowerCase()
-  return (extension && MIME_POR_EXTENSION[extension]) || contentTypeDeKapso || 'application/octet-stream'
 }
 
 export async function GET(request: NextRequest) {
