@@ -256,14 +256,16 @@ export async function listarContactosKapso(
     const data = (await res.json()) as PaginaContactosKapso
     crudos.push(...(data.data ?? []))
 
-    if (data.paging?.next) {
-      url = data.paging.next
-    } else if (data.paging?.cursors?.after) {
-      url = `${KAPSO_BASE}/${numero.phoneNumberId}/contacts?${new URLSearchParams({ limit: String(limite), after: data.paging.cursors.after })}`
+    // Confirmado contra tráfico real (log de error): `paging.next` NO es una URL lista
+    // para pedir (a diferencia de Meta Graph API) — es directamente el cursor en base64
+    // (keyset: fecha + id), hay que armar nosotros la siguiente URL con `after=`.
+    const cursor = data.paging?.next ?? data.paging?.cursors?.after
+    if (cursor) {
+      url = `${KAPSO_BASE}/${numero.phoneNumberId}/contacts?${new URLSearchParams({ limit: String(limite), after: cursor })}`
     } else {
-      // Sin campo de paginación reconocido — si esta página vino llena (=== limite) pero
-      // no hay forma de pedir la siguiente, se corta acá aunque falten contactos. Se
-      // loguea el shape real de `paging` para poder ajustar esto sin adivinar de nuevo.
+      // Sin cursor — si esta página vino llena (=== limite) pero no hay forma de pedir
+      // la siguiente, se corta acá aunque falten contactos. Se loguea el shape real de
+      // `paging` para poder ajustar esto sin adivinar de nuevo.
       if (crudos.length === limite * (pagina + 1)) {
         console.error(`[listarContactosKapso] posible paginación no reconocida para ${numero.id} — paging recibido:`, JSON.stringify(data.paging))
       }
