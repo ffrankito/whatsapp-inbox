@@ -1374,18 +1374,21 @@ function Agenda({
   // respuesta tardía de un número que ya no es el activo, en vez de confiar en que
   // las respuestas lleguen en el mismo orden en que se pidieron.
   const numeroRef = useRef(numero)
-  const prevNumeroRef = useRef(numero)
   const prevRefreshSignalRef = useRef(refreshSignal)
   useEffect(() => {
     numeroRef.current = numero
   }, [numero])
 
+  // Trae SIEMPRE la lista completa del número (sin filtrar por búsqueda) — filtrar es
+  // 100% en memoria (ver contactosFiltrados más abajo), no hace falta volver a pedirle
+  // nada a Kapso en cada tecla que se escribe en el buscador. Antes sí volvía a pedir
+  // todo de nuevo por cada letra tipeada, y como esto ahora trae TODAS las páginas (ver
+  // el fix de paginación), tipear se sentía carísimo/lento.
   const cargarContactos = useCallback(
-    (numeroPedido: NumeroId, busquedaPedida: string) => {
+    (numeroPedido: NumeroId) => {
       setCargando(true)
       setError(false)
       const params = new URLSearchParams({ numero: numeroPedido })
-      if (busquedaPedida.trim()) params.set('q', busquedaPedida.trim())
       fetch(`/api/contactos?${params.toString()}`, { headers: headersConAgente() })
         .then((res) => (res.ok ? res.json() : Promise.reject()))
         .then((data) => {
@@ -1417,36 +1420,36 @@ function Agenda({
   )
 
   useEffect(() => {
-    const numeroCambio = prevNumeroRef.current !== numero
-    prevNumeroRef.current = numero
-
-    if (numeroCambio) {
-      // Cambiar de número no es "tipear" — se limpia y recarga al toque, sin esperar
-      // el debounce (si no, se ve la agenda vieja un instante, que es justo el bug).
-      // También reinicia la línea de base de "nuevo" — es por número, no global.
-      setContactos([])
-      setNuevosWaIds(new Set())
-      vistosRef.current = new Set()
-      primeraCargaRef.current = true
-      if (busqueda) setBusqueda('')
-      cargarContactos(numero, '')
-      return
-    }
-
-    const t = setTimeout(() => cargarContactos(numero, busqueda), 250)
-    return () => clearTimeout(t)
-  }, [numero, busqueda, cargarContactos])
+    // Cambiar de número limpia y recarga al toque — también reinicia la línea de base
+    // de "nuevo" (es por número, no global).
+    setContactos([])
+    setNuevosWaIds(new Set())
+    vistosRef.current = new Set()
+    primeraCargaRef.current = true
+    setBusqueda('')
+    cargarContactos(numero)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numero, cargarContactos])
 
   // Refresco en tiempo real: cuando llega un mensaje del número activo (mismo evento
   // SSE que usa el chat), la agenda se recarga sola — un contacto nuevo se agrega solo
   // al directorio de Kapso apenas escribe, así que reaparece acá sin que nadie recargue
-  // la página. Sin debounce: no es "tipear", es un evento puntual.
+  // la página.
   useEffect(() => {
     if (prevRefreshSignalRef.current === refreshSignal) return
     prevRefreshSignalRef.current = refreshSignal
-    cargarContactos(numero, busqueda)
+    cargarContactos(numero)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshSignal])
+
+  // Buscar es 100% en memoria sobre lo ya traído — nunca dispara un pedido nuevo.
+  const contactosFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    if (!q) return contactos
+    return contactos.filter(
+      (c) => c.displayName?.toLowerCase().includes(q) || c.profileName?.toLowerCase().includes(q) || c.waId.toLowerCase().includes(q),
+    )
+  }, [contactos, busqueda])
 
   function descartarNuevo(waId: string) {
     setNuevosWaIds((prev) => {
@@ -1470,7 +1473,7 @@ function Agenda({
       headers: headersConAgente({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ displayName: nombre }),
     })
-      .then((res) => (res.ok ? cargarContactos(numero, busqueda) : undefined))
+      .then((res) => (res.ok ? cargarContactos(numero) : undefined))
       .finally(() => setEditandoWaId(null))
   }
 
@@ -1501,8 +1504,10 @@ function Agenda({
       />
       {cargando && <div className="empty">Cargando contactos…</div>}
       {!cargando && error && <div className="empty">No se pudo cargar la agenda.</div>}
-      {!cargando && !error && contactos.length === 0 && <div className="empty">Sin contactos todavía.</div>}
-      {!cargando && !error && contactos.map((c) => (
+      {!cargando && !error && contactosFiltrados.length === 0 && (
+        <div className="empty">{busqueda ? 'Ningún contacto coincide con la búsqueda.' : 'Sin contactos todavía.'}</div>
+      )}
+      {!cargando && !error && contactosFiltrados.map((c) => (
         <div
           key={c.id}
           className="s24-agenda-item"
