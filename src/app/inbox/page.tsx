@@ -849,17 +849,12 @@ export default function InboxPage() {
                 {filtroAgenteId && ` (de ${agentesConocidos.find((a) => a.id === filtroAgenteId)?.nombre ?? '…'})`}
               </div>
               {agentesConocidos.length > 0 && (
-                <select
-                  className="s24-agente-filtro"
-                  value={filtroAgenteId}
-                  onChange={(e) => setFiltroAgenteId(e.target.value)}
-                  title="Ver solo las conversaciones tomadas por un agente"
-                >
-                  <option value="">Todos los agentes</option>
-                  {agentesConocidos.map((a) => (
-                    <option key={a.id} value={a.id}>{a.nombre}{a.id === agente.id ? ' (vos)' : ''}</option>
-                  ))}
-                </select>
+                <DropdownAgentes
+                  agentesConocidos={agentesConocidos}
+                  filtroAgenteId={filtroAgenteId}
+                  setFiltroAgenteId={setFiltroAgenteId}
+                  agenteId={agente.id}
+                />
               )}
               {conversacionesFiltradas.length === 0 && (
                 <div className="empty">
@@ -1262,6 +1257,80 @@ function IconoApp() {
       <rect x="6" y="2" width="12" height="20" rx="2" />
       <line x1="10" y1="19" x2="14" y2="19" />
     </svg>
+  )
+}
+
+// Dropdown propio para filtrar por agente — reemplaza un <select> nativo, cuyo botón
+// cerrado se puede estilar lindo, pero la lista desplegada la dibuja el sistema
+// operativo (no CSS nuestro), y se ve genérica sin importar qué le pongamos alrededor.
+function DropdownAgentes({
+  agentesConocidos,
+  filtroAgenteId,
+  setFiltroAgenteId,
+  agenteId,
+}: {
+  agentesConocidos: Agente[]
+  filtroAgenteId: string
+  setFiltroAgenteId: (id: string) => void
+  agenteId: string
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!abierto) return
+    function onClickFuera(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false)
+    }
+    function onEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') setAbierto(false)
+    }
+    document.addEventListener('mousedown', onClickFuera)
+    document.addEventListener('keydown', onEscape)
+    return () => {
+      document.removeEventListener('mousedown', onClickFuera)
+      document.removeEventListener('keydown', onEscape)
+    }
+  }, [abierto])
+
+  const seleccionado = agentesConocidos.find((a) => a.id === filtroAgenteId)
+  const etiqueta = seleccionado ? `${seleccionado.nombre}${seleccionado.id === agenteId ? ' (vos)' : ''}` : 'Todos los agentes'
+
+  function elegir(id: string) {
+    setFiltroAgenteId(id)
+    setAbierto(false)
+  }
+
+  return (
+    <div className="s24-dropdown" ref={ref}>
+      <button
+        type="button"
+        className="s24-dropdown-trigger"
+        onClick={() => setAbierto((v) => !v)}
+        title="Ver solo las conversaciones tomadas por un agente"
+      >
+        <span className="txt">{etiqueta}</span>
+        <span className="chev" data-abierto={String(abierto)}>▾</span>
+      </button>
+      {abierto && (
+        <div className="s24-dropdown-lista">
+          <button type="button" className="s24-dropdown-item" data-active={String(!filtroAgenteId)} onClick={() => elegir('')}>
+            Todos los agentes
+          </button>
+          {agentesConocidos.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              className="s24-dropdown-item"
+              data-active={String(a.id === filtroAgenteId)}
+              onClick={() => elegir(a.id)}
+            >
+              {a.nombre}{a.id === agenteId ? ' (vos)' : ''}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
