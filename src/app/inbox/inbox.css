@@ -247,6 +247,42 @@
   background: var(--warn-tint); color: var(--warn); white-space: nowrap;
 }
 
+/* ── Tabs Chats/Agenda ────────────────────────────────────────────────────── */
+.s24-convlist-tabs { display: flex; gap: 4px; padding: 12px 14px 0; }
+.s24-tab {
+  all: unset; cursor: pointer; flex: 1; text-align: center; font-size: 12px; font-weight: 700;
+  padding: 8px 10px; border-radius: 10px 10px 0 0; color: var(--text-faint);
+  border-bottom: 2px solid transparent;
+}
+.s24-tab:hover { background: var(--surface-soft); }
+.s24-tab[data-active="true"] { color: var(--numero-accent-dim); border-bottom-color: var(--numero-accent); }
+
+/* ── Agenda de contactos ──────────────────────────────────────────────────── */
+.s24-agenda { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+.s24-agenda-buscador {
+  font: inherit; font-size: 12.5px; margin: 12px 14px; padding: 9px 12px;
+  border-radius: 10px; border: 1px solid var(--border); background: var(--surface-soft); color: var(--text);
+}
+.s24-agenda-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.s24-agenda-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.s24-agenda-info .who { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s24-agenda-tel { font-size: 11.5px; color: var(--text-faint); }
+.s24-agenda-nombre-input {
+  font: inherit; font-size: 13px; font-weight: 600; padding: 3px 6px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); width: 100%;
+}
+.s24-agenda-acciones { display: flex; align-items: center; gap: 6px; flex: none; }
+.s24-agenda-btn {
+  all: unset; cursor: pointer; font-size: 14px; padding: 6px; border-radius: 8px;
+  line-height: 1;
+}
+.s24-agenda-btn:hover { background: var(--surface-soft); }
+.s24-agenda-btn:disabled { opacity: 0.5; cursor: default; }
+.s24-agenda-sin-conv { font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
+
 /* ── Panel del hilo ───────────────────────────────────────────────────────── */
 .s24-thread { display: flex; flex-direction: column; min-height: 0; background: var(--surface); }
 .s24-thread-head {

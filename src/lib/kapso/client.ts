@@ -135,6 +135,77 @@ export async function marcarLeido(numero: NumeroWhatsapp, messageId: string) {
   }
 }
 
+export type ContactoKapso = {
+  id: string
+  waId: string
+  profileName?: string
+  customerId?: string
+}
+
+/**
+ * Agenda de contactos de Kapso — "keeps a directory of contacts observed in
+ * conversations" (docs.kapso.ai, sección Contacts), se arma sola a partir del
+ * historial, no hace falta cargarla a mano. Separada por phoneNumberId, igual que
+ * el resto de este cliente.
+ *
+ * OJO: el path REST de abajo (`/{phoneNumberId}/contacts`) sigue el mismo patrón que
+ * el resto de este archivo (mismo estilo que Meta Graph API), pero TODAVÍA NO SE
+ * CONFIRMÓ contra tráfico real — la doc de Kapso solo publica el SDK de TypeScript
+ * (`client.contacts.list(...)`), no el path HTTP crudo. Las credenciales de test
+ * locales estaban vencidas al momento de escribir esto (devolvían 404 "WhatsApp
+ * configuration not found" incluso contra /messages, que sí funciona en producción).
+ * Confirmar/corregir este path contra las credenciales reales de Railway antes de
+ * darlo por bueno del todo (mismo criterio que el resto de este archivo, ver
+ * comentarios de parseWebhook.ts sobre "confirmado contra tráfico real").
+ */
+export async function listarContactosKapso(
+  numero: NumeroWhatsapp,
+  opts: { search?: string; limit?: number } = {},
+): Promise<ContactoKapso[]> {
+  const params = new URLSearchParams()
+  if (opts.limit) params.set('limit', String(opts.limit))
+
+  const res = await fetch(`${KAPSO_BASE}/${numero.phoneNumberId}/contacts?${params.toString()}`, {
+    headers: { 'X-API-Key': numero.kapsoApiKey },
+  })
+
+  if (!res.ok) {
+    throw new Error(`Kapso ${numero.id} (contacts) -> ${res.status}: ${await res.text()}`)
+  }
+
+  const data = (await res.json()) as { data?: { id: string; wa_id?: string; waId?: string; profile_name?: string; profileName?: string; customer_id?: string }[] }
+  const contactos = (data.data ?? []).map((c) => ({
+    id: c.id,
+    waId: c.wa_id ?? c.waId ?? '',
+    profileName: c.profile_name ?? c.profileName,
+    customerId: c.customer_id,
+  }))
+
+  // Búsqueda por nombre/teléfono en memoria — no está confirmado si la API soporta
+  // filtro server-side por texto libre (sí por waId puntual, según la doc del SDK).
+  if (!opts.search) return contactos
+  const q = opts.search.trim().toLowerCase()
+  if (!q) return contactos
+  return contactos.filter(
+    (c) => c.profileName?.toLowerCase().includes(q) || c.waId.toLowerCase().includes(q),
+  )
+}
+
+export async function actualizarContactoKapso(numero: NumeroWhatsapp, waId: string, profileName: string): Promise<void> {
+  const res = await fetch(`${KAPSO_BASE}/${numero.phoneNumberId}/contacts/${encodeURIComponent(waId)}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': numero.kapsoApiKey,
+    },
+    body: JSON.stringify({ profile_name: profileName }),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Kapso ${numero.id} (update contact) -> ${res.status}: ${await res.text()}`)
+  }
+}
+
 /**
  * Fallback para cuando no tenemos guardado el waId del último mensaje entrante de un
  * contacto (por ejemplo, conversaciones que ya tenían mensajes viejos antes de que se

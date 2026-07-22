@@ -41,7 +41,10 @@ export type StandaloneConversacionResumen = Omit<StandaloneConversacion, 'mensaj
   ultimoMensaje?: StandaloneMensaje
 }
 
-function idParaTelefono(numero: NumeroId, phone: string) {
+// Exportada para la agenda de contactos (ver /api/contactos/[waId]/conversacion) —
+// deriva el id de conversación de forma determinística a partir del waId de un
+// contacto de Kapso, sin necesitar una query aparte para "buscar por teléfono".
+export function idParaTelefono(numero: NumeroId, phone: string) {
   return `standalone-${numero}-${phone.replace(/\D/g, '')}`
 }
 

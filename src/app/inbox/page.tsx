@@ -156,6 +156,9 @@ export default function InboxPage() {
   const [agentesConocidos, setAgentesConocidos] = useState<Agente[]>([])
   const [filtroAgenteId, setFiltroAgenteId] = useState('')
   const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null)
+  // Agenda de contactos (Kapso) del número activo — vista alternativa a la lista de
+  // conversaciones, no un panel aparte, para no romper el layout de 3 columnas ya armado.
+  const [vistaAgenda, setVistaAgenda] = useState(false)
   const ultimoTypingRef = useRef(0)
 
   // ── Grabar y mandar audio (paridad con Huellas de Paz) ───────────────────
@@ -719,54 +722,77 @@ export default function InboxPage() {
         </nav>
 
         <div className="s24-convlist">
-          <div className="listhead">
-            {NUMEROS.find((n) => n.id === numeroActivo)?.nombre} · {conversacionesFiltradas.length}
-            {filtroAgenteId && ` (de ${agentesConocidos.find((a) => a.id === filtroAgenteId)?.nombre ?? '…'})`}
-          </div>
-          {agentesConocidos.length > 0 && (
-            <select
-              className="s24-agente-filtro"
-              value={filtroAgenteId}
-              onChange={(e) => setFiltroAgenteId(e.target.value)}
-              title="Ver solo las conversaciones tomadas por un agente"
-            >
-              <option value="">Todos los agentes</option>
-              {agentesConocidos.map((a) => (
-                <option key={a.id} value={a.id}>{a.nombre}{a.id === agente.id ? ' (vos)' : ''}</option>
-              ))}
-            </select>
-          )}
-          {conversacionesFiltradas.length === 0 && (
-            <div className="empty">
-              {filtroAgenteId ? 'Ese agente no tiene conversaciones tomadas en este número.' : 'Sin conversaciones todavía.'}
-            </div>
-          )}
-          {conversacionesFiltradas.map((c) => (
-            <button
-              key={c.id}
-              className="s24-conv-item"
-              data-active={String(c.id === seleccionadaId)}
-              onClick={() => setSeleccionadaId(c.id)}
-            >
-              <span className="row1">
-                <span className="s24-avatar">{iniciales(c.fullName || c.contactName || c.phone || '?')}</span>
-                <span className="who">{c.fullName || c.contactName || c.phone || 'Sin nombre'}</span>
-              </span>
-              {c.lastMessageAdjuntoTipo ? (
-                <div className="preview">
-                  {iconoYEtiquetaAdjunto(c.lastMessageAdjuntoTipo).icono}{' '}
-                  {esPlaceholderAdjunto(c.lastMessageBody) ? iconoYEtiquetaAdjunto(c.lastMessageAdjuntoTipo).etiqueta : c.lastMessageBody}
-                </div>
-              ) : (
-                c.lastMessageBody && <div className="preview">{c.lastMessageBody}</div>
-              )}
-              <div className="chips">
-                {noLeida(c) && <span className="s24-chip unread">Sin leer</span>}
-                {c.estado === 'asignada' && <span className="s24-chip lock">🔒 {c.asignadaA?.nombre}</span>}
-                {c.estado === 'cerrada' && <span className="s24-chip closed">Cerrada</span>}
-              </div>
+          <div className="s24-convlist-tabs">
+            <button type="button" className="s24-tab" data-active={String(!vistaAgenda)} onClick={() => setVistaAgenda(false)}>
+              Chats
             </button>
-          ))}
+            <button type="button" className="s24-tab" data-active={String(vistaAgenda)} onClick={() => setVistaAgenda(true)}>
+              Agenda
+            </button>
+          </div>
+
+          {vistaAgenda ? (
+            <Agenda
+              numero={numeroActivo}
+              headersConAgente={headersConAgente}
+              onAbrirConversacion={(id) => {
+                setFiltroAgenteId('')
+                setSeleccionadaId(id)
+                setVistaAgenda(false)
+              }}
+            />
+          ) : (
+            <>
+              <div className="listhead">
+                {NUMEROS.find((n) => n.id === numeroActivo)?.nombre} · {conversacionesFiltradas.length}
+                {filtroAgenteId && ` (de ${agentesConocidos.find((a) => a.id === filtroAgenteId)?.nombre ?? '…'})`}
+              </div>
+              {agentesConocidos.length > 0 && (
+                <select
+                  className="s24-agente-filtro"
+                  value={filtroAgenteId}
+                  onChange={(e) => setFiltroAgenteId(e.target.value)}
+                  title="Ver solo las conversaciones tomadas por un agente"
+                >
+                  <option value="">Todos los agentes</option>
+                  {agentesConocidos.map((a) => (
+                    <option key={a.id} value={a.id}>{a.nombre}{a.id === agente.id ? ' (vos)' : ''}</option>
+                  ))}
+                </select>
+              )}
+              {conversacionesFiltradas.length === 0 && (
+                <div className="empty">
+                  {filtroAgenteId ? 'Ese agente no tiene conversaciones tomadas en este número.' : 'Sin conversaciones todavía.'}
+                </div>
+              )}
+              {conversacionesFiltradas.map((c) => (
+                <button
+                  key={c.id}
+                  className="s24-conv-item"
+                  data-active={String(c.id === seleccionadaId)}
+                  onClick={() => setSeleccionadaId(c.id)}
+                >
+                  <span className="row1">
+                    <span className="s24-avatar">{iniciales(c.fullName || c.contactName || c.phone || '?')}</span>
+                    <span className="who">{c.fullName || c.contactName || c.phone || 'Sin nombre'}</span>
+                  </span>
+                  {c.lastMessageAdjuntoTipo ? (
+                    <div className="preview">
+                      {iconoYEtiquetaAdjunto(c.lastMessageAdjuntoTipo).icono}{' '}
+                      {esPlaceholderAdjunto(c.lastMessageBody) ? iconoYEtiquetaAdjunto(c.lastMessageAdjuntoTipo).etiqueta : c.lastMessageBody}
+                    </div>
+                  ) : (
+                    c.lastMessageBody && <div className="preview">{c.lastMessageBody}</div>
+                  )}
+                  <div className="chips">
+                    {noLeida(c) && <span className="s24-chip unread">Sin leer</span>}
+                    {c.estado === 'asignada' && <span className="s24-chip lock">🔒 {c.asignadaA?.nombre}</span>}
+                    {c.estado === 'cerrada' && <span className="s24-chip closed">Cerrada</span>}
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
         </div>
 
         <section className="s24-thread">
@@ -1038,6 +1064,142 @@ function IconoApp() {
       <rect x="6" y="2" width="12" height="20" rx="2" />
       <line x1="10" y1="19" x2="14" y2="19" />
     </svg>
+  )
+}
+
+type ContactoAgenda = { id: string; waId: string; profileName?: string; customerId?: string }
+
+// Agenda de contactos de Kapso para el número activo — ver, buscar y corregir el
+// nombre, y abrir la conversación de los que ya tienen una (ver /api/contactos y
+// /api/contactos/[waId]/conversacion). Iniciar conversación nueva con un contacto que
+// nunca escribió queda afuera (requiere mensaje de plantilla, ver docs/BACKLOG.md).
+function Agenda({
+  numero,
+  headersConAgente,
+  onAbrirConversacion,
+}: {
+  numero: NumeroId
+  headersConAgente: (extra?: Record<string, string>) => Record<string, string>
+  onAbrirConversacion: (conversacionId: string) => void
+}) {
+  const [contactos, setContactos] = useState<ContactoAgenda[]>([])
+  const [busqueda, setBusqueda] = useState('')
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState(false)
+  const [editandoWaId, setEditandoWaId] = useState<string | null>(null)
+  const [nombreEdit, setNombreEdit] = useState('')
+  const [abriendoWaId, setAbriendoWaId] = useState<string | null>(null)
+  const [sinConversacionWaId, setSinConversacionWaId] = useState<string | null>(null)
+
+  const cargarContactos = useCallback(() => {
+    setCargando(true)
+    setError(false)
+    const params = new URLSearchParams({ numero })
+    if (busqueda.trim()) params.set('q', busqueda.trim())
+    fetch(`/api/contactos?${params.toString()}`, { headers: headersConAgente() })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => setContactos(data.contactos ?? []))
+      .catch(() => setError(true))
+      .finally(() => setCargando(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numero, busqueda])
+
+  useEffect(() => {
+    // Debounce corto para no pegarle a la API en cada tecla mientras se busca.
+    const t = setTimeout(cargarContactos, 250)
+    return () => clearTimeout(t)
+  }, [cargarContactos])
+
+  function empezarEdicion(c: ContactoAgenda) {
+    setEditandoWaId(c.waId)
+    setNombreEdit(c.profileName ?? '')
+  }
+
+  function guardarEdicion(waId: string) {
+    const nombre = nombreEdit.trim()
+    if (!nombre) return
+    fetch(`/api/contactos/${encodeURIComponent(waId)}?numero=${numero}`, {
+      method: 'PATCH',
+      headers: headersConAgente({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ profileName: nombre }),
+    })
+      .then((res) => (res.ok ? cargarContactos() : undefined))
+      .finally(() => setEditandoWaId(null))
+  }
+
+  function abrirConversacion(waId: string) {
+    setAbriendoWaId(waId)
+    setSinConversacionWaId(null)
+    fetch(`/api/contactos/${encodeURIComponent(waId)}/conversacion?numero=${numero}`, { headers: headersConAgente() })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        if (data.conversacionId) {
+          onAbrirConversacion(data.conversacionId)
+        } else {
+          setSinConversacionWaId(waId)
+        }
+      })
+      .catch(() => setSinConversacionWaId(waId))
+      .finally(() => setAbriendoWaId(null))
+  }
+
+  return (
+    <div className="s24-agenda">
+      <input
+        className="s24-agenda-buscador"
+        type="text"
+        placeholder="Buscar por nombre o teléfono…"
+        value={busqueda}
+        onChange={(e) => setBusqueda(e.target.value)}
+      />
+      {cargando && <div className="empty">Cargando contactos…</div>}
+      {!cargando && error && <div className="empty">No se pudo cargar la agenda.</div>}
+      {!cargando && !error && contactos.length === 0 && <div className="empty">Sin contactos todavía.</div>}
+      {!cargando && !error && contactos.map((c) => (
+        <div key={c.id} className="s24-agenda-item">
+          <span className="s24-avatar">{iniciales(c.profileName || c.waId)}</span>
+          <div className="s24-agenda-info">
+            {editandoWaId === c.waId ? (
+              <input
+                className="s24-agenda-nombre-input"
+                type="text"
+                value={nombreEdit}
+                autoFocus
+                onChange={(e) => setNombreEdit(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') guardarEdicion(c.waId)
+                  if (e.key === 'Escape') setEditandoWaId(null)
+                }}
+                onBlur={() => guardarEdicion(c.waId)}
+              />
+            ) : (
+              <span className="who">{c.profileName || 'Sin nombre'}</span>
+            )}
+            <span className="s24-agenda-tel">{c.waId}</span>
+          </div>
+          <div className="s24-agenda-acciones">
+            {editandoWaId !== c.waId && (
+              <button type="button" className="s24-agenda-btn" onClick={() => empezarEdicion(c)} title="Editar nombre">
+                ✏️
+              </button>
+            )}
+            {sinConversacionWaId === c.waId ? (
+              <span className="s24-agenda-sin-conv">Sin conversación todavía</span>
+            ) : (
+              <button
+                type="button"
+                className="s24-agenda-btn"
+                onClick={() => abrirConversacion(c.waId)}
+                disabled={abriendoWaId === c.waId}
+                title="Abrir conversación"
+              >
+                {abriendoWaId === c.waId ? '…' : '💬'}
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
