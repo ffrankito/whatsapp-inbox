@@ -71,6 +71,27 @@ declare global {
 // corta la conexión SSE (reinicio del contenedor, deploy). Ver ARCHITECTURE.md §5.1.
 const POLL_RESPALDO_MS = 45_000
 
+// Recordar en qué número/conversación/vista estaba el agente, para que un refresh de la
+// página (F5) no vuelva siempre al estado inicial — a diferencia de la identidad o
+// "leído" (que si necesitan ser lo mismo para cualquier agente/dispositivo, ver
+// ARCHITECTURE.md §26), esto es pura preferencia de navegación de ESTE navegador, tiene
+// sentido que viva en localStorage.
+const NAV_STORAGE_KEY = 's24_nav'
+type NavGuardada = {
+  numeroActivo?: NumeroId
+  seleccionadaId?: string | null
+  vistaAgenda?: boolean
+  pantallaMobile?: 'numeros' | 'lista'
+}
+function leerNavGuardada(): NavGuardada {
+  if (typeof window === 'undefined') return {}
+  try {
+    return JSON.parse(localStorage.getItem(NAV_STORAGE_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
 function iniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/).filter(Boolean)
   if (partes.length === 0) return '?'
@@ -139,7 +160,7 @@ function iconoYEtiquetaAdjunto(tipo: TipoAdjunto): { icono: string; etiqueta: st
 
 export default function InboxPage() {
   const [ssoListo, setSsoListo] = useState(false)
-  const [numeroActivo, setNumeroActivo] = useState<NumeroId>('dealers')
+  const [numeroActivo, setNumeroActivo] = useState<NumeroId>(() => leerNavGuardada().numeroActivo ?? 'dealers')
   // Un casillero por número, no un solo valor compartido — cada respuesta de
   // /api/conversaciones escribe únicamente en el casillero del número que pidió, así que
   // una respuesta tardía de un número que ya no está activo nunca puede pisar los datos
@@ -149,7 +170,7 @@ export default function InboxPage() {
     () => conversacionesPorNumero[numeroActivo] ?? [],
     [conversacionesPorNumero, numeroActivo],
   )
-  const [seleccionadaId, setSeleccionadaId] = useState<string | null>(null)
+  const [seleccionadaId, setSeleccionadaId] = useState<string | null>(() => leerNavGuardada().seleccionadaId ?? null)
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [texto, setTexto] = useState('')
   const [archivoAdj, setArchivoAdj] = useState<File | null>(null)
@@ -164,11 +185,11 @@ export default function InboxPage() {
   const [panelArchivos, setPanelArchivos] = useState(false)
   // Agenda de contactos (Kapso) del número activo — vista alternativa a la lista de
   // conversaciones, no un panel aparte, para no romper el layout de 3 columnas ya armado.
-  const [vistaAgenda, setVistaAgenda] = useState(false)
+  const [vistaAgenda, setVistaAgenda] = useState(() => leerNavGuardada().vistaAgenda ?? false)
   // Navegación por pantallas en mobile (ver .s24-console[data-pantalla-mobile] en
   // inbox.css) — en desktop las 3 columnas se ven todas juntas y esto no se usa para
   // nada. 'hilo' se deriva de si hay conversación seleccionada, no es un estado propio.
-  const [pantallaMobile, setPantallaMobile] = useState<'numeros' | 'lista'>('numeros')
+  const [pantallaMobile, setPantallaMobile] = useState<'numeros' | 'lista'>(() => leerNavGuardada().pantallaMobile ?? 'numeros')
   // Bump para que la Agenda se refresque sola cuando llega un evento SSE del número
   // activo (mensaje nuevo) — ver el useEffect de "Tiempo real" más abajo.
   const [agendaRefreshTick, setAgendaRefreshTick] = useState(0)
@@ -321,6 +342,17 @@ export default function InboxPage() {
     seleccionadaIdRef.current = seleccionadaId
     setPanelArchivos(false)
   }, [seleccionadaId])
+
+  // Guarda dónde está parado el agente (número/conversación/vista) para que un refresh
+  // de la página no vuelva siempre al estado inicial — ver leerNavGuardada() más arriba.
+  useEffect(() => {
+    try {
+      const nav: NavGuardada = { numeroActivo, seleccionadaId, vistaAgenda, pantallaMobile }
+      localStorage.setItem(NAV_STORAGE_KEY, JSON.stringify(nav))
+    } catch {
+      // localStorage lleno o no disponible — no es crítico, el próximo cambio reintenta
+    }
+  }, [numeroActivo, seleccionadaId, vistaAgenda, pantallaMobile])
 
   // "No leída" es una propiedad de la conversación en sí (vistoHastaMensajeId, en el
   // servidor), no de quién la mira — así cualquier agente/dispositivo que la abra la
