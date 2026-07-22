@@ -560,11 +560,37 @@
   .s24-console { grid-template-columns: 180px 240px 1fr; }
 }
 
-@media (max-width: 860px) {
+/* ── Botón "volver" — solo existe visualmente en mobile (ver más abajo). En desktop
+   las 3 columnas se ven juntas, no hace falta "volver" a ningún lado. ──────────────── */
+.s24-mobile-back {
+  all: unset; display: none; cursor: pointer; font-size: 18px; padding: 6px 10px;
+  border-radius: 8px; flex: none;
+}
+.s24-mobile-back:hover { background: var(--surface-soft); }
+
+/* Pantallas chicas (celular, o la ventana bien achicada): navegación por pantallas, una
+   columna a la vez — números → lista (chats/agenda) → hilo, con botón de volver entre
+   cada una. Igual que cualquier app de chat en mobile (WhatsApp Web achicado se
+   comporta así también). Controlado por data-pantalla-mobile en .s24-console, que la
+   propia página calcula (no es solo CSS: hace falta saber en qué "pantalla" está el
+   usuario, no solo el ancho). */
+@media (max-width: 900px) {
   .s24-console { grid-template-columns: 1fr; }
-  .s24-console > * + * { border-left: none; border-top: 1px solid var(--border); }
-  .s24-numbers { flex-direction: row; overflow-x: auto; }
-  .s24-num-btn { min-width: 160px; }
+  .s24-console > * + * { border-left: none; }
+  .s24-numbers, .s24-convlist, .s24-thread { display: none; width: 100%; }
+  .s24-console[data-pantalla-mobile="numeros"] .s24-numbers { display: flex; flex: 1; }
+  .s24-console[data-pantalla-mobile="lista"] .s24-convlist { display: flex; flex: 1; }
+  .s24-console[data-pantalla-mobile="hilo"] .s24-thread { display: flex; flex: 1; }
+
+  .s24-numbers { flex-direction: column; }
+  .s24-mobile-back { display: inline-flex; align-items: center; }
+  .s24-convlist-tabs { padding-left: 4px; }
+  .s24-thread-head .who { flex: 1; min-width: 0; }
+
+  /* Más aire para el texto en pantallas chicas — 68% queda muy angosto en un celular. */
+  .s24-bubble-row { max-width: 86%; }
+  .s24-emoji-overlay { max-width: none; }
+
   .s24-app-top { padding: 12px 16px; }
   .s24-title h1 { font-size: 14.5px; }
   .s24-title .sub { display: none; }

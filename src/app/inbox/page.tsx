@@ -161,6 +161,10 @@ export default function InboxPage() {
   // Agenda de contactos (Kapso) del número activo — vista alternativa a la lista de
   // conversaciones, no un panel aparte, para no romper el layout de 3 columnas ya armado.
   const [vistaAgenda, setVistaAgenda] = useState(false)
+  // Navegación por pantallas en mobile (ver .s24-console[data-pantalla-mobile] en
+  // inbox.css) — en desktop las 3 columnas se ven todas juntas y esto no se usa para
+  // nada. 'hilo' se deriva de si hay conversación seleccionada, no es un estado propio.
+  const [pantallaMobile, setPantallaMobile] = useState<'numeros' | 'lista'>('numeros')
   // Bump para que la Agenda se refresque sola cuando llega un evento SSE del número
   // activo (mensaje nuevo) — ver el useEffect de "Tiempo real" más abajo.
   const [agendaRefreshTick, setAgendaRefreshTick] = useState(0)
@@ -738,7 +742,7 @@ export default function InboxPage() {
         </div>
       </div>
 
-      <div className="s24-console" data-numero={numeroActivo}>
+      <div className="s24-console" data-numero={numeroActivo} data-pantalla-mobile={seleccionada ? 'hilo' : pantallaMobile}>
         <nav className="s24-numbers">
           <div className="eyebrow">Números</div>
           {NUMEROS.map((n) => (
@@ -748,9 +752,13 @@ export default function InboxPage() {
               data-numero={n.id}
               data-active={String(n.id === numeroActivo)}
               onClick={() => {
-                if (n.id === numeroActivo) return
-                setNumeroActivo(n.id)
-                setSeleccionadaId(null)
+                if (n.id !== numeroActivo) {
+                  setNumeroActivo(n.id)
+                  setSeleccionadaId(null)
+                }
+                // En mobile, tocar un número siempre avanza a la pantalla de
+                // contenido — aunque ya fuera el activo (ver .s24-console[data-pantalla-mobile]).
+                setPantallaMobile('lista')
               }}
             >
               <span className="row1">
@@ -763,6 +771,9 @@ export default function InboxPage() {
 
         <div className="s24-convlist">
           <div className="s24-convlist-tabs">
+            <button type="button" className="s24-mobile-back" onClick={() => setPantallaMobile('numeros')} aria-label="Volver a números">
+              ←
+            </button>
             <button type="button" className="s24-tab" data-active={String(!vistaAgenda)} onClick={() => setVistaAgenda(false)}>
               Chats
             </button>
@@ -843,6 +854,9 @@ export default function InboxPage() {
             <>
               <div className="s24-thread-head">
                 <div className="who">
+                  <button type="button" className="s24-mobile-back" onClick={() => setSeleccionadaId(null)} aria-label="Volver a la lista">
+                    ←
+                  </button>
                   <span className="s24-avatar lg">{iniciales(seleccionada.fullName || seleccionada.contactName || seleccionada.phone || '?')}</span>
                   <span className="who-text">
                     <span className="name">{seleccionada.fullName || seleccionada.contactName || 'Sin nombre'}</span>
