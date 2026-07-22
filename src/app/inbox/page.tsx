@@ -1161,24 +1161,55 @@ function Agenda({
   const [abriendoWaId, setAbriendoWaId] = useState<string | null>(null)
   const [sinConversacionWaId, setSinConversacionWaId] = useState<string | null>(null)
 
-  const cargarContactos = useCallback(() => {
-    setCargando(true)
-    setError(false)
-    const params = new URLSearchParams({ numero })
-    if (busqueda.trim()) params.set('q', busqueda.trim())
-    fetch(`/api/contactos?${params.toString()}`, { headers: headersConAgente() })
-      .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((data) => setContactos(data.contactos ?? []))
-      .catch(() => setError(true))
-      .finally(() => setCargando(false))
+  // A prueba de carreras, no de timing (mismo criterio que el cambio de número de
+  // conversaciones): guarda cuál es el número "vigente" para poder ignorar una
+  // respuesta tardía de un número que ya no es el activo, en vez de confiar en que
+  // las respuestas lleguen en el mismo orden en que se pidieron.
+  const numeroRef = useRef(numero)
+  const prevNumeroRef = useRef(numero)
+  useEffect(() => {
+    numeroRef.current = numero
+  }, [numero])
+
+  const cargarContactos = useCallback(
+    (numeroPedido: NumeroId, busquedaPedida: string) => {
+      setCargando(true)
+      setError(false)
+      const params = new URLSearchParams({ numero: numeroPedido })
+      if (busquedaPedida.trim()) params.set('q', busquedaPedida.trim())
+      fetch(`/api/contactos?${params.toString()}`, { headers: headersConAgente() })
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((data) => {
+          if (numeroRef.current !== numeroPedido) return
+          setContactos(data.contactos ?? [])
+        })
+        .catch(() => {
+          if (numeroRef.current === numeroPedido) setError(true)
+        })
+        .finally(() => {
+          if (numeroRef.current === numeroPedido) setCargando(false)
+        })
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [numero, busqueda])
+    [],
+  )
 
   useEffect(() => {
-    // Debounce corto para no pegarle a la API en cada tecla mientras se busca.
-    const t = setTimeout(cargarContactos, 250)
+    const numeroCambio = prevNumeroRef.current !== numero
+    prevNumeroRef.current = numero
+
+    if (numeroCambio) {
+      // Cambiar de número no es "tipear" — se limpia y recarga al toque, sin esperar
+      // el debounce (si no, se ve la agenda vieja un instante, que es justo el bug).
+      setContactos([])
+      if (busqueda) setBusqueda('')
+      cargarContactos(numero, '')
+      return
+    }
+
+    const t = setTimeout(() => cargarContactos(numero, busqueda), 250)
     return () => clearTimeout(t)
-  }, [cargarContactos])
+  }, [numero, busqueda, cargarContactos])
 
   function empezarEdicion(c: ContactoAgenda) {
     setEditandoWaId(c.waId)
@@ -1193,7 +1224,7 @@ function Agenda({
       headers: headersConAgente({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ profileName: nombre }),
     })
-      .then((res) => (res.ok ? cargarContactos() : undefined))
+      .then((res) => (res.ok ? cargarContactos(numero, busqueda) : undefined))
       .finally(() => setEditandoWaId(null))
   }
 
