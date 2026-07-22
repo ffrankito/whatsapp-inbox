@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Script from 'next/script'
-import EmojiPicker from 'emoji-picker-react'
+import EmojiPicker, { Theme, type EmojiClickData } from 'emoji-picker-react'
 import './inbox.css'
 
 // NOTA: los nombres de campo de GHL (ConversationSchema / GetMessageResponseDto) están
@@ -161,8 +161,21 @@ export default function InboxPage() {
   // Agenda de contactos (Kapso) del número activo — vista alternativa a la lista de
   // conversaciones, no un panel aparte, para no romper el layout de 3 columnas ya armado.
   const [vistaAgenda, setVistaAgenda] = useState(false)
-  // Id del mensaje cuyo picker de emoji está abierto (uno solo a la vez).
-  const [reaccionandoMensajeId, setReaccionandoMensajeId] = useState<string | null>(null)
+  // Picker de emoji compartido — uno solo a la vez, se renderiza como panel fijo (no
+  // pegado a cada burbuja) para no depender de la posición dentro de .s24-bubbles, que
+  // hace scroll y lo cortaba/desalineaba. Sirve tanto para reaccionar a un mensaje como
+  // para insertar un emoji en el composer.
+  const [pickerEmoji, setPickerEmoji] = useState<{ modo: 'reaccion'; mensajeId: string } | { modo: 'composer' } | null>(null)
+
+  function onSeleccionarEmoji(data: EmojiClickData) {
+    if (pickerEmoji?.modo === 'reaccion') {
+      const actual = mensajes.find((m) => m.id === pickerEmoji.mensajeId)?.reaccion
+      reaccionar(pickerEmoji.mensajeId, actual === data.emoji ? '' : data.emoji)
+    } else if (pickerEmoji?.modo === 'composer') {
+      setTexto((prev) => prev + data.emoji)
+    }
+    setPickerEmoji(null)
+  }
   const ultimoTypingRef = useRef(0)
 
   // ── Grabar y mandar audio (paridad con Huellas de Paz) ───────────────────
@@ -372,7 +385,6 @@ export default function InboxPage() {
   // en el onEmojiClick del picker) a un mensaje del hilo activo.
   async function reaccionar(mensajeId: string, emoji: string) {
     if (!seleccionadaId) return
-    setReaccionandoMensajeId(null)
     try {
       await fetch(`/api/conversaciones/${seleccionadaId}/reaccion`, {
         method: 'POST',
@@ -896,20 +908,17 @@ export default function InboxPage() {
                         <button
                           type="button"
                           className="s24-reaccionar-btn"
-                          onClick={() => setReaccionandoMensajeId(reaccionandoMensajeId === m.id ? null : m.id)}
+                          onClick={() =>
+                            setPickerEmoji(
+                              pickerEmoji?.modo === 'reaccion' && pickerEmoji.mensajeId === m.id
+                                ? null
+                                : { modo: 'reaccion', mensajeId: m.id },
+                            )
+                          }
                           title="Reaccionar"
                         >
                           🙂
                         </button>
-                      )}
-                      {reaccionandoMensajeId === m.id && (
-                        <div className="s24-emoji-popover">
-                          <EmojiPicker
-                            onEmojiClick={(data) => reaccionar(m.id, m.reaccion === data.emoji ? '' : data.emoji)}
-                            width={300}
-                            height={360}
-                          />
-                        </div>
                       )}
                     </div>
                   )
@@ -966,6 +975,15 @@ export default function InboxPage() {
                           }}
                         />
                       </label>
+                      <button
+                        type="button"
+                        className="s24-attach"
+                        title="Insertar emoji"
+                        disabled={!puedeEscribir}
+                        onClick={() => setPickerEmoji(pickerEmoji?.modo === 'composer' ? null : { modo: 'composer' })}
+                      >
+                        🙂
+                      </button>
                       <input
                         type="text"
                         placeholder={
@@ -998,6 +1016,16 @@ export default function InboxPage() {
                   </>
                 )}
               </div>
+
+              {pickerEmoji && (
+                <div className="s24-emoji-overlay">
+                  <div className="s24-emoji-overlay-head">
+                    <span>{pickerEmoji.modo === 'reaccion' ? 'Reaccionar' : 'Insertar emoji'}</span>
+                    <button type="button" className="cerrar" onClick={() => setPickerEmoji(null)} aria-label="Cerrar">✕</button>
+                  </div>
+                  <EmojiPicker onEmojiClick={onSeleccionarEmoji} theme={Theme.AUTO} width="100%" height={340} />
+                </div>
+              )}
 
               <div className="s24-notes">
                 <div className="head">
