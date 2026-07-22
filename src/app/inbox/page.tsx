@@ -1095,7 +1095,7 @@ export default function InboxPage() {
       </div>
 
       {imagenAmpliada && (
-        <div className="s24-lightbox" onClick={() => setImagenAmpliada(null)}>
+        <div className="s24-lightbox s24-lightbox-encima" onClick={() => setImagenAmpliada(null)}>
           <button type="button" className="s24-lightbox-cerrar" onClick={() => setImagenAmpliada(null)} aria-label="Cerrar">
             <IconoX />
           </button>

@@ -540,6 +540,10 @@
   background: rgba(255, 255, 255, 0.12); color: #fff;
 }
 .s24-lightbox-cerrar:hover { background: rgba(255, 255, 255, 0.22); }
+/* La foto ampliada tiene que quedar siempre arriba del panel de archivos, aunque se
+   abra una desde adentro del otro — mismo z-index en los dos no alcanza, gana el que
+   esté después en el HTML (el panel), tapando la foto sin este empujón extra. */
+.s24-lightbox-encima { z-index: 60; }
 
 /* ── Panel "Archivos y adjuntos" (al tocar el nombre del contacto) ────────────────── */
 .s24-panel-archivos {
