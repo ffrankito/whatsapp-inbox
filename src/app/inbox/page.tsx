@@ -1334,7 +1334,10 @@ function DropdownAgentes({
   )
 }
 
-type ContactoAgenda = { id: string; waId: string; profileName?: string; customerId?: string }
+// profileName: nombre que el contacto puso en su propio WhatsApp, de solo lectura.
+// displayName: apodo propio de Kapso, editable — es lo que en la práctica se muestra/
+// edita como "el nombre guardado" en la agenda (ver actualizarContactoKapso).
+type ContactoAgenda = { id: string; waId: string; profileName?: string; displayName?: string; customerId?: string }
 
 // Agenda de contactos de Kapso para el número activo — ver, buscar y corregir el
 // nombre, y abrir la conversación de los que ya tienen una (ver /api/contactos y
@@ -1456,7 +1459,7 @@ function Agenda({
 
   function empezarEdicion(c: ContactoAgenda) {
     setEditandoWaId(c.waId)
-    setNombreEdit(c.profileName ?? '')
+    setNombreEdit(c.displayName ?? c.profileName ?? '')
   }
 
   function guardarEdicion(waId: string) {
@@ -1465,7 +1468,7 @@ function Agenda({
     fetch(`/api/contactos/${encodeURIComponent(waId)}?numero=${numero}`, {
       method: 'PATCH',
       headers: headersConAgente({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ profileName: nombre }),
+      body: JSON.stringify({ displayName: nombre }),
     })
       .then((res) => (res.ok ? cargarContactos(numero, busqueda) : undefined))
       .finally(() => setEditandoWaId(null))
@@ -1505,7 +1508,7 @@ function Agenda({
           className="s24-agenda-item"
           onClick={() => nuevosWaIds.has(c.waId) && descartarNuevo(c.waId)}
         >
-          <span className="s24-avatar">{iniciales(c.profileName || c.waId)}</span>
+          <span className="s24-avatar">{iniciales(c.displayName || c.profileName || c.waId)}</span>
           <div className="s24-agenda-info">
             {nuevosWaIds.has(c.waId) && <span className="s24-chip unread">Nuevo</span>}
             {editandoWaId === c.waId ? (
@@ -1522,7 +1525,12 @@ function Agenda({
                 onBlur={() => guardarEdicion(c.waId)}
               />
             ) : (
-              <span className="who">{c.profileName || 'Sin nombre'}</span>
+              <span className="who">
+                {c.displayName || c.profileName || 'Sin nombre'}
+                {c.displayName && c.profileName && c.displayName !== c.profileName && (
+                  <span className="s24-agenda-profile-name"> ({c.profileName})</span>
+                )}
+              </span>
             )}
             <span className="s24-agenda-tel">{c.waId}</span>
           </div>

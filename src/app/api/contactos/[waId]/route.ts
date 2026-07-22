@@ -26,10 +26,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Falta o es inválido el parámetro "numero"' }, { status: 400 })
   }
 
-  const { profileName } = await request.json()
-  const nombre = (profileName as string | undefined)?.trim()
+  const { displayName } = await request.json()
+  const nombre = (displayName as string | undefined)?.trim()
   if (!nombre) {
-    return NextResponse.json({ error: 'Falta profileName' }, { status: 400 })
+    return NextResponse.json({ error: 'Falta displayName' }, { status: 400 })
   }
 
   try {

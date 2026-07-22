@@ -199,9 +199,17 @@ export async function marcarLeido(numero: NumeroWhatsapp, messageId: string) {
 export type ContactoKapso = {
   id: string
   waId: string
+  // profileName: el nombre que el CONTACTO puso en su propio WhatsApp — de solo
+  // lectura, no se puede editar (lo confirma la doc de update-contact: ese endpoint
+  // solo deja tocar display_name/metadata, nunca profile_name).
   profileName?: string
+  // displayName: apodo propio de Kapso, editable — lo que en la práctica se usa como
+  // "el nombre guardado del contacto" en la agenda.
+  displayName?: string
   customerId?: string
 }
+
+const CONTACTS_LIST_LIMITE_MAXIMO = 100 // confirmado en la doc REST (default 20, max 100)
 
 /**
  * Agenda de contactos de Kapso — "keeps a directory of contacts observed in
@@ -209,41 +217,35 @@ export type ContactoKapso = {
  * historial, no hace falta cargarla a mano. Separada por phoneNumberId, igual que
  * el resto de este cliente.
  *
- * OJO: el path REST de abajo (`/{phoneNumberId}/contacts`) sigue el mismo patrón que
- * el resto de este archivo (mismo estilo que Meta Graph API), pero TODAVÍA NO SE
- * CONFIRMÓ contra tráfico real — la doc de Kapso solo publica el SDK de TypeScript
- * (`client.contacts.list(...)`), no el path HTTP crudo. Las credenciales de test
- * locales estaban vencidas al momento de escribir esto (devolvían 404 "WhatsApp
- * configuration not found" incluso contra /messages, que sí funciona en producción).
- * Confirmar/corregir este path contra las credenciales reales de Railway antes de
- * darlo por bueno del todo (mismo criterio que el resto de este archivo, ver
- * comentarios de parseWebhook.ts sobre "confirmado contra tráfico real").
+ * Confirmado contra la doc REST oficial (docs.kapso.ai/api/meta/whatsapp/contacts/
+ * list-contacts) — GET {KAPSO_BASE}/{phoneNumberId}/contacts, paginación por cursor
+ * con los parámetros `after`/`before` (paging.cursors.after en la respuesta).
  */
-type ContactoKapsoRaw = { id: string; wa_id?: string; waId?: string; profile_name?: string; profileName?: string; customer_id?: string }
-type PaginaContactosKapso = { data?: ContactoKapsoRaw[]; paging?: { next?: string; cursors?: { after?: string } } }
+type ContactoKapsoRaw = {
+  id: string
+  wa_id?: string
+  profile_name?: string
+  display_name?: string
+  customer_id?: string
+}
+type PaginaContactosKapso = { data?: ContactoKapsoRaw[]; paging?: { cursors?: { after?: string } } }
 
-// Tope defensivo de páginas — la doc de Kapso no confirma el shape exacto de paginación
-// (se asume el estándar de Meta Graph API: paging.next / paging.cursors.after), así que
-// esto corta un loop infinito si la respuesta viniera con una forma inesperada que
-// nunca deje de "tener siguiente página".
+// Tope defensivo de páginas — corta un loop infinito si la API alguna vez devolviera un
+// cursor que no avanza de verdad.
 const MAX_PAGINAS_CONTACTOS = 20
 
 /**
  * Trae TODOS los contactos del número, no solo la primera página — antes se pedía una
- * sola tanda de 50 y listo, así que un número con más de 50 contactos dejaba afuera a
- * cualquiera que estuviera más allá de esa primera página (bug real: un contacto con
- * conversación activa no aparecía en la agenda). Sigue paginando mientras la respuesta
- * traiga `paging.next` (Kapso/Meta ya arma esa URL completa, se usa tal cual) o
- * `paging.cursors.after` (se arma la siguiente request con ese cursor a mano).
+ * sola tanda y listo, así que un número con más contactos que ese límite dejaba afuera
+ * a cualquiera más allá de la primera página (bug real: un contacto con conversación
+ * activa no aparecía en la agenda). Sigue pidiendo la próxima página mientras la
+ * respuesta traiga `paging.cursors.after`.
  */
 export async function listarContactosKapso(
   numero: NumeroWhatsapp,
   opts: { search?: string; limit?: number } = {},
 ): Promise<ContactoKapso[]> {
-  // Confirmado contra tráfico real: el path /{phoneNumberId}/contacts existe (bien), pero
-  // Kapso rechaza limit=200 con 400 "Invalid limit parameter" — se baja a 50 (mismo valor
-  // del ejemplo de la doc oficial del SDK) hasta confirmar el máximo real permitido.
-  const limite = Math.min(opts.limit ?? 50, 50)
+  const limite = Math.min(opts.limit ?? CONTACTS_LIST_LIMITE_MAXIMO, CONTACTS_LIST_LIMITE_MAXIMO)
   let url = `${KAPSO_BASE}/${numero.phoneNumberId}/contacts?${new URLSearchParams({ limit: String(limite) })}`
   const crudos: ContactoKapsoRaw[] = []
 
@@ -256,48 +258,44 @@ export async function listarContactosKapso(
     const data = (await res.json()) as PaginaContactosKapso
     crudos.push(...(data.data ?? []))
 
-    // Confirmado contra tráfico real (log de error): `paging.next` NO es una URL lista
-    // para pedir (a diferencia de Meta Graph API) — es directamente el cursor en base64
-    // (keyset: fecha + id), hay que armar nosotros la siguiente URL con `after=`.
-    const cursor = data.paging?.next ?? data.paging?.cursors?.after
-    if (cursor) {
-      url = `${KAPSO_BASE}/${numero.phoneNumberId}/contacts?${new URLSearchParams({ limit: String(limite), after: cursor })}`
-    } else {
-      // Sin cursor — si esta página vino llena (=== limite) pero no hay forma de pedir
-      // la siguiente, se corta acá aunque falten contactos. Se loguea el shape real de
-      // `paging` para poder ajustar esto sin adivinar de nuevo.
-      if (crudos.length === limite * (pagina + 1)) {
-        console.error(`[listarContactosKapso] posible paginación no reconocida para ${numero.id} — paging recibido:`, JSON.stringify(data.paging))
-      }
-      url = ''
-    }
+    const cursor = data.paging?.cursors?.after
+    url = cursor ? `${KAPSO_BASE}/${numero.phoneNumberId}/contacts?${new URLSearchParams({ limit: String(limite), after: cursor })}` : ''
   }
 
   const contactos = crudos.map((c) => ({
     id: c.id,
-    waId: c.wa_id ?? c.waId ?? '',
-    profileName: c.profile_name ?? c.profileName,
+    waId: c.wa_id ?? '',
+    profileName: c.profile_name,
+    displayName: c.display_name,
     customerId: c.customer_id,
   }))
 
   // Búsqueda por nombre/teléfono en memoria — no está confirmado si la API soporta
-  // filtro server-side por texto libre (sí por waId puntual, según la doc del SDK).
+  // filtro server-side por texto libre (sí por waId puntual).
   if (!opts.search) return contactos
   const q = opts.search.trim().toLowerCase()
   if (!q) return contactos
   return contactos.filter(
-    (c) => c.profileName?.toLowerCase().includes(q) || c.waId.toLowerCase().includes(q),
+    (c) => c.displayName?.toLowerCase().includes(q) || c.profileName?.toLowerCase().includes(q) || c.waId.toLowerCase().includes(q),
   )
 }
 
-export async function actualizarContactoKapso(numero: NumeroWhatsapp, waId: string, profileName: string): Promise<void> {
-  const res = await fetch(`${KAPSO_BASE}/${numero.phoneNumberId}/contacts/${encodeURIComponent(waId)}`, {
+/**
+ * Actualiza el "apodo" (display_name) de un contacto — profile_name (el nombre que el
+ * contacto puso en su propio WhatsApp) no se puede tocar, solo lo confirma este
+ * endpoint. Confirmado contra la doc REST oficial (docs.kapso.ai/api/platform/v1/
+ * contacts/update-contact): API y path DISTINTOS al resto de este archivo — vive bajo
+ * /platform/v1, no /meta/whatsapp/v24.0, y el identificador va directo en la URL (el
+ * waId, sin phoneNumberId en el path).
+ */
+export async function actualizarContactoKapso(numero: NumeroWhatsapp, waId: string, displayName: string): Promise<void> {
+  const res = await fetch(`https://api.kapso.ai/platform/v1/whatsapp/contacts/${encodeURIComponent(waId)}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
       'X-API-Key': numero.kapsoApiKey,
     },
-    body: JSON.stringify({ profile_name: profileName }),
+    body: JSON.stringify({ contact: { display_name: displayName } }),
   })
 
   if (!res.ok) {
