@@ -43,8 +43,16 @@ mueve al `ROADMAP.md` en la fase que corresponda.
 
 ## Seguridad y confiabilidad (ya identificados en la revisión, no nuevos)
 
-14. Cerrar los 2 huecos de seguridad: lectura de conversaciones sin autenticación (IDOR)
-    + suplantación de agente vía `/api/agentes`.
+14. Cerrar el hueco de seguridad que sigue abierto: lectura de conversaciones sin
+    autenticación (IDOR) — `GET /api/conversaciones/[id]` (DEMO_MODE y STANDALONE_MODE)
+    no llama a `agenteActual()`, devuelve todos los mensajes a cualquiera que sepa/adivine
+    el id. Agravante: el id no es random, se deriva de forma predecible de
+    número+teléfono (`idParaTelefono`), así que alcanza con saber el teléfono de un
+    contacto y a qué número le escribió para armar el id a mano.
+    ~~Suplantación de agente vía `/api/agentes`~~ — resuelto al agregar el login con
+    Google: se sacó el fallback de headers sin verificar (`x-s24-agente-id`/`-nombre`),
+    ahora la única identidad válida es una cookie firmada server-side (ver
+    src/lib/agente.ts).
 15. Logs estructurados + reintentos cuando falla un envío a Kapso/GHL (hoy se pierde en
     silencio).
 16. Tests automatizados para la lógica de bloqueo entre agentes y el parser de Kapso.
