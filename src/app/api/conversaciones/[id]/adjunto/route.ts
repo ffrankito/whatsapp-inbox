@@ -11,8 +11,17 @@ import { emitirEvento } from '@/lib/events'
 import type { TipoAdjunto } from '@/lib/mensaje'
 
 const TAMANO_MAXIMO = 8 * 1024 * 1024 // 8MB — alcanza para audios/documentos cortos
+// Límite propio de WhatsApp para stickers (docs.kapso.ai, "Send sticker"): 100KB
+// estáticos / 500KB animados. No se distingue acá cuál es cuál (habría que parsear el
+// WEBP) — se usa el tope más permisivo, así igual corta un archivo muy grande antes de
+// mandarlo, en vez de depender del 502 genérico de Kapso para avisar.
+const TAMANO_MAXIMO_STICKER = 500 * 1024
 
 function tipoDesdeMime(mime: string): TipoAdjunto {
+  // WhatsApp trata los stickers como un tipo de mensaje aparte (type: "sticker"), no
+  // como una imagen más — sin esto, un .webp se mandaría como imagen normal en vez de
+  // aparecer como sticker real en el WhatsApp del cliente.
+  if (mime === 'image/webp') return 'sticker'
   if (mime.startsWith('image/')) return 'image'
   if (mime.startsWith('audio/')) return 'audio'
   if (mime.startsWith('video/')) return 'video'
@@ -55,6 +64,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const mime = archivo.type || 'application/octet-stream'
   const tipo = tipoDesdeMime(mime)
+  if (tipo === 'sticker' && archivo.size > TAMANO_MAXIMO_STICKER) {
+    return NextResponse.json({ error: 'El sticker es demasiado grande (máximo 500KB)' }, { status: 413 })
+  }
   const agente = await agenteActual(request)
 
   if (DEMO_MODE) {
@@ -75,9 +87,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Esta conversación está asignada a otro agente' }, { status: 423 })
     }
 
-    // El audio no soporta caption en la API de WhatsApp — se manda sin, aunque hayan
-    // escrito algo (se descarta silenciosamente, igual que hace Meta).
-    const captionParaEnviar = tipo === 'audio' ? undefined : caption
+    // El audio y los stickers no soportan caption en la API de WhatsApp — se manda sin,
+    // aunque hayan escrito algo (se descarta silenciosamente, igual que hace Meta).
+    const captionParaEnviar = tipo === 'audio' || tipo === 'sticker' ? undefined : caption
     let waId: string | undefined
     try {
       const mediaId = await subirMediaAKapso(numero, archivo, archivo.name, mime)
