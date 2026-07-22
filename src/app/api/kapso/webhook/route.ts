@@ -7,7 +7,19 @@ import { encontrarOCrearConversacion, agregarMensaje, actualizarEstadoMensaje, a
 import { webhookLimitado } from '@/lib/rateLimit'
 import { emitirEvento } from '@/lib/events'
 import { parsearMensajeEntrante, parsearReaccionEntrante } from '@/lib/kapso/parseWebhook'
-import type { EstadoMensaje } from '@/lib/mensaje'
+import { descargarComoDataUrl } from '@/lib/kapso/client'
+import type { Adjunto, EstadoMensaje } from '@/lib/mensaje'
+
+// Reemplaza el link externo de Kapso por el archivo bajado y guardado como data: URL en
+// nuestra propia base — así el archivo sigue disponible para siempre en el historial,
+// sin depender de cuánto dure el link de Kapso (no hay confirmación de eso, ver
+// descargarComoDataUrl). Si falla la descarga, se sigue usando el link original en vez
+// de perder el adjunto por completo.
+async function conAdjuntoPersistido(adjunto: Adjunto | undefined): Promise<Adjunto | undefined> {
+  if (!adjunto) return adjunto
+  const dataUrl = await descargarComoDataUrl(adjunto.url)
+  return dataUrl ? { ...adjunto, url: dataUrl } : adjunto
+}
 
 // TODO: reemplazar por la location real una vez definido dónde vive cada instalación
 // (hoy: sandbox de developer, location de test UnDaROg6tyLshlODU22O — ver ARCHITECTURE.md)
@@ -75,7 +87,8 @@ export async function POST(request: NextRequest) {
             console.error('[Kapso webhook] mensaje del celular: no se pudo identificar el número (phone_number_id):', saliente.phoneNumberId)
           } else {
             const conv = await encontrarOCrearConversacion(numero.id, saliente.telefono, saliente.nombreContacto)
-            await agregarMensaje(conv.id, `[Celular] ${saliente.texto}`, 'outbound', saliente.adjunto, { status: 'sent', waId: saliente.waId })
+            const adjuntoPersistido = await conAdjuntoPersistido(saliente.adjunto)
+            await agregarMensaje(conv.id, `[Celular] ${saliente.texto}`, 'outbound', adjuntoPersistido, { status: 'sent', waId: saliente.waId })
             emitirEvento({ tipo: 'mensaje', numero: numero.id })
           }
         }
@@ -128,7 +141,8 @@ export async function POST(request: NextRequest) {
   // en vez de reenviar (ver ARCHITECTURE.md §14.2). Se descarta en la Fase 6.
   if (STANDALONE_MODE) {
     const conv = await encontrarOCrearConversacion(numero.id, entrante.telefono, entrante.nombreContacto)
-    await agregarMensaje(conv.id, entrante.texto, 'inbound', entrante.adjunto, { waId: entrante.waId })
+    const adjuntoPersistido = await conAdjuntoPersistido(entrante.adjunto)
+    await agregarMensaje(conv.id, entrante.texto, 'inbound', adjuntoPersistido, { waId: entrante.waId })
     emitirEvento({ tipo: 'mensaje', numero: numero.id })
     return NextResponse.json({ ok: true })
   }

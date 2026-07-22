@@ -2,6 +2,38 @@ import type { NumeroWhatsapp } from '@/lib/ghl/numeros'
 import type { TipoAdjunto } from '@/lib/mensaje'
 
 const KAPSO_BASE = 'https://api.kapso.ai/meta/whatsapp/v24.0'
+// Igual que TAMANO_MAXIMO en la ruta de adjuntos salientes — si el archivo entrante es
+// más grande que esto, se deja el link externo de Kapso en vez de bajarlo (evita
+// hinchar la base con archivos gigantes; no se sabe si esos links vencen, pero es mejor
+// que nada en el caso raro de que pase).
+const TAMANO_MAXIMO_DESCARGA = 16 * 1024 * 1024
+
+/**
+ * Baja un archivo entrante desde la URL propia de Kapso (media_url) y lo convierte a un
+ * data: URL en base64 — mismo criterio que ya usa comoDataUrl() para lo saliente (ver
+ * src/app/api/conversaciones/[id]/adjunto/route.ts). Se hace para que el archivo quede
+ * guardado de verdad en nuestra base ni bien llega, en vez de depender de que el link de
+ * Kapso siga sirviendo el archivo indefinidamente (no hay confirmación de cuánto dura).
+ * Devuelve null si falla o el archivo es demasiado grande — el caller debe hacer
+ * fallback al link original de Kapso en ese caso, no perder el mensaje entero.
+ */
+export async function descargarComoDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+
+    const declarado = Number(res.headers.get('content-length') ?? 0)
+    if (declarado > TAMANO_MAXIMO_DESCARGA) return null
+
+    const buffer = Buffer.from(await res.arrayBuffer())
+    if (buffer.byteLength > TAMANO_MAXIMO_DESCARGA) return null
+
+    const mime = res.headers.get('content-type')?.split(';')[0]?.trim() || 'application/octet-stream'
+    return `data:${mime};base64,${buffer.toString('base64')}`
+  } catch {
+    return null
+  }
+}
 
 export async function enviarPorKapso(numero: NumeroWhatsapp, telefono: string, texto: string) {
   const res = await fetch(`${KAPSO_BASE}/${numero.phoneNumberId}/messages`, {
