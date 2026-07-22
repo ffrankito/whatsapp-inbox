@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get('q') ?? undefined
 
   try {
-    const contactos = await listarContactosKapso(numero, { search: q, limit: 200 })
+    const contactos = await listarContactosKapso(numero, { search: q, limit: 50 })
     return NextResponse.json({ contactos })
   } catch (err) {
     console.error(`[GET /api/contactos] error consultando Kapso (${numeroId}):`, err)
