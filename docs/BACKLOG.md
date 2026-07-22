@@ -18,7 +18,12 @@ mueve al `ROADMAP.md` en la fase que corresponda.
 4. Saludo automático con el nombre del agente al tomar una conversación.
 5. Aviso al cliente cuando se traspasa la conversación a otro agente.
 6. Mensajes de plantilla (HSM) para reabrir conversaciones fuera de la ventana de 24hs de
-   WhatsApp.
+   WhatsApp. **En progreso**: plantilla `reabrir_conversacion` (categoría UTILITY, texto
+   "Hola {{nombre}}, ¿cómo estás? Te escribimos de Security24") ya creada y mandada a
+   revisión de Meta — id `887680860605104`, WABA `191950227325628`, estado `PENDING`.
+   Falta: confirmar aprobación de Meta, armar `enviarPlantillaPorKapso` en
+   kapso/client.ts, la ruta para iniciar conversación nueva desde la agenda, y el botón
+   en la UI para los contactos sin chat todavía.
 7. Mensaje automático fuera de horario de atención — distinto según si se detecta algo
    urgente (ver #9), configurable por línea de negocio y por horario/feriados; si es
    urgente, escalar de verdad a un celular de guardia, no solo dejarlo en la cola.
@@ -43,12 +48,9 @@ mueve al `ROADMAP.md` en la fase que corresponda.
 
 ## Seguridad y confiabilidad (ya identificados en la revisión, no nuevos)
 
-14. Cerrar el hueco de seguridad que sigue abierto: lectura de conversaciones sin
-    autenticación (IDOR) — `GET /api/conversaciones/[id]` (DEMO_MODE y STANDALONE_MODE)
-    no llama a `agenteActual()`, devuelve todos los mensajes a cualquiera que sepa/adivine
-    el id. Agravante: el id no es random, se deriva de forma predecible de
-    número+teléfono (`idParaTelefono`), así que alcanza con saber el teléfono de un
-    contacto y a qué número le escribió para armar el id a mano.
+14. ~~Cerrar los 2 huecos de seguridad~~ — **resueltos los dos**:
+    ~~Lectura de conversaciones sin autenticación (IDOR)~~ — `GET /api/conversaciones` y
+    `/api/conversaciones/[id]` ahora exigen `agenteActual()` antes de devolver nada.
     ~~Suplantación de agente vía `/api/agentes`~~ — resuelto al agregar el login con
     Google: se sacó el fallback de headers sin verificar (`x-s24-agente-id`/`-nombre`),
     ahora la única identidad válida es una cookie firmada server-side (ver
