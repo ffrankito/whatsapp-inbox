@@ -529,6 +529,17 @@
   background: var(--warn-tint); border-bottom: 1px solid var(--border);
 }
 .s24-lock-banner b { color: var(--text); }
+.s24-lock-banner.critical { background: var(--critical-tint); color: var(--critical); }
+
+.s24-plantillas-rapidas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.s24-plantilla-btn {
+  all: unset; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap;
+  padding: 7px 14px; border-radius: 999px; color: var(--critical); background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--critical) 35%, transparent);
+}
+.s24-plantilla-btn:hover { background: var(--critical-tint); }
+.s24-plantilla-btn:disabled { opacity: 0.6; cursor: default; }
+.s24-plantillas-vacio { font-size: 11.5px; color: var(--text-faint); margin-top: 6px; }
 
 /* ── Adjuntos en las burbujas ─────────────────────────────────────────────── */
 .s24-bubble-text { display: block; }

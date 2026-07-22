@@ -52,16 +52,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!numero) {
     return NextResponse.json({ error: 'Falta o es inválido el parámetro "numero"' }, { status: 400 })
   }
-  if (!numero.plantillaReabrir) {
-    return NextResponse.json({ error: `${numero.nombre} todavía no tiene una plantilla aprobada para arrancar conversaciones` }, { status: 400 })
+  if (numero.plantillasRapidas.length === 0) {
+    return NextResponse.json({ error: `${numero.nombre} todavía no tiene ninguna plantilla aprobada` }, { status: 400 })
   }
 
-  const { nombre } = await request.json().catch(() => ({}))
+  const { nombre, plantillaId } = await request.json().catch(() => ({}))
+  const plantilla = plantillaId ? numero.plantillasRapidas.find((p) => p.id === plantillaId) : numero.plantillasRapidas[0]
+  if (!plantilla) {
+    return NextResponse.json({ error: 'Esa plantilla no existe para este número' }, { status: 400 })
+  }
   const nombreParaSaludo: string = nombre?.trim() || waId
 
   const conv = await encontrarOCrearConversacion(numeroId!, waId, nombre?.trim() || undefined)
 
-  const { nombre: nombrePlantilla, idioma, texto } = numero.plantillaReabrir
+  const { nombre: nombrePlantilla, idioma, texto } = plantilla
   let resultado
   try {
     resultado = await enviarPlantillaPorKapso(numero, waId, nombrePlantilla, idioma, { nombre: nombreParaSaludo })

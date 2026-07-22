@@ -21,6 +21,7 @@ const NUMEROS: { id: NumeroId; nombre: string; Icono: () => React.JSX.Element }[
 ]
 
 type Agente = { id: string; nombre: string }
+type PlantillaDisponible = { id: string; etiqueta: string }
 type EstadoConversacion = 'sin_asignar' | 'asignada' | 'cerrada'
 type TipoAdjunto = 'image' | 'audio' | 'document' | 'video' | 'sticker'
 type Adjunto = { url: string; tipo: TipoAdjunto; nombre?: string }
@@ -177,6 +178,7 @@ export default function InboxPage() {
   const [nota, setNota] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [agentesConocidos, setAgentesConocidos] = useState<Agente[]>([])
+  const [plantillasDisponibles, setPlantillasDisponibles] = useState<PlantillaDisponible[]>([])
   const [filtroAgenteId, setFiltroAgenteId] = useState('')
   const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null)
   // Panel "Archivos y adjuntos" de la conversación (como en WhatsApp, al tocar el
@@ -198,6 +200,11 @@ export default function InboxPage() {
   // hace scroll y lo cortaba/desalineaba. Sirve tanto para reaccionar a un mensaje como
   // para insertar un emoji en el composer.
   const [pickerEmoji, setPickerEmoji] = useState<{ modo: 'reaccion'; mensajeId: string } | { modo: 'composer' } | null>(null)
+
+  // Reactivar una conversación fuera de la ventana de 24hs con la plantilla aprobada
+  // (acceso rápido en el hilo, ver docs/BACKLOG.md #6).
+  const [reactivando, setReactivando] = useState(false)
+  const [errorReactivar, setErrorReactivar] = useState<string | null>(null)
 
   function onSeleccionarEmoji(data: EmojiClickData) {
     if (pickerEmoji?.modo === 'reaccion') {
@@ -411,6 +418,25 @@ export default function InboxPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agente])
 
+  // Plantillas rápidas disponibles para el número activo (ver docs/BACKLOG.md #6) — se
+  // recarga al cambiar de número, cada número puede tener sus propias plantillas
+  // aprobadas (o ninguna todavía).
+  const cargarPlantillas = useCallback(
+    async (numeroPedido: NumeroId) => {
+      try {
+        const res = await fetch(`/api/plantillas?numero=${numeroPedido}`, { headers: headersConAgente() })
+        if (!res.ok) return
+        const data = await res.json()
+        if (numeroActivoRef.current !== numeroPedido) return
+        setPlantillasDisponibles(data.plantillas ?? [])
+      } catch {
+        // silencioso: no bloquea el resto del inbox
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [headersConAgente],
+  )
+
   const cargarMensajes = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/conversaciones/${id}`)
@@ -448,6 +474,13 @@ export default function InboxPage() {
     const interval = setInterval(cargarConversaciones, POLL_RESPALDO_MS)
     return () => clearInterval(interval)
   }, [ssoListo, numeroActivo, cargarConversaciones])
+
+  // Plantillas rápidas del número activo — no cambian seguido, alcanza con recargar al
+  // cambiar de número (no hace falta poll).
+  useEffect(() => {
+    if (!ssoListo) return
+    cargarPlantillas(numeroActivo)
+  }, [ssoListo, numeroActivo, cargarPlantillas])
 
   // ── Agentes conocidos: carga inicial + poll de respaldo lento ────────────
   useEffect(() => {
@@ -515,6 +548,23 @@ export default function InboxPage() {
   // libre (antes dejaba responder a cualquiera mientras nadie más la hubiera tomado).
   const puedeEscribir = !!seleccionada && seleccionada.estado === 'asignada' && esMia
 
+  // WhatsApp solo deja mandar texto libre hasta 24hs después del último mensaje que
+  // mandó el CONTACTO (no el agente) — pasado eso, hace falta un mensaje de plantilla
+  // para "reactivar" la conversación (ver docs/BACKLOG.md #6). Si nunca hubo un mensaje
+  // entrante (ej. una conversación recién arrancada con plantilla, todavía sin
+  // respuesta) se trata igual que ventana cerrada — es la misma regla real de Meta.
+  const ultimoInboundEn = useMemo(() => {
+    for (let i = mensajes.length - 1; i >= 0; i--) {
+      if (mensajes[i].direction === 'inbound') return new Date(mensajes[i].dateAdded).getTime()
+    }
+    return null
+  }, [mensajes])
+  const ventanaAbierta = ultimoInboundEn !== null && Date.now() - ultimoInboundEn < 24 * 60 * 60 * 1000
+  // Gatea específicamente el composer de texto libre — el resto de las acciones
+  // (notas, reacciones, liberar/cerrar) no dependen de la ventana de 24hs, solo de ser
+  // el dueño de la conversación (puedeEscribir).
+  const puedeEscribirTexto = puedeEscribir && ventanaAbierta
+
   // Archivos y adjuntos de la conversación activa (como en WhatsApp al tocar el nombre
   // del contacto) — se arma con los mensajes ya cargados, sin pedir nada nuevo.
   const adjuntosDeLaConversacion = useMemo(() => {
@@ -552,6 +602,29 @@ export default function InboxPage() {
   async function refrescarTodo() {
     await cargarConversaciones()
     if (seleccionadaIdRef.current) await cargarMensajes(seleccionadaIdRef.current)
+  }
+
+  // Manda el mensaje de plantilla para "despertar" una conversación que ya pasó las
+  // 24hs — reusa la misma ruta que arranca conversaciones nuevas desde la Agenda,
+  // porque encontrarOCrearConversacion ahí adentro ya maneja bien el caso de que la
+  // conversación exista (no crea una duplicada, sigue usando la misma).
+  function reactivarConversacion(plantillaId: string) {
+    if (!seleccionada?.phone) return
+    setReactivando(true)
+    setErrorReactivar(null)
+    fetch(`/api/contactos/${encodeURIComponent(seleccionada.phone)}/conversacion?numero=${numeroActivo}`, {
+      method: 'POST',
+      headers: headersConAgente({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ nombre: seleccionada.fullName || seleccionada.contactName, plantillaId }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'No se pudo reactivar la conversación')
+        return data
+      })
+      .then(() => refrescarTodo())
+      .catch((err: Error) => setErrorReactivar(err.message))
+      .finally(() => setReactivando(false))
   }
 
   async function responder() {
@@ -951,6 +1024,31 @@ export default function InboxPage() {
               {seleccionada.estado === 'cerrada' && (
                 <div className="s24-lock-banner">Esta conversación está cerrada.</div>
               )}
+              {puedeEscribir && !ventanaAbierta && (
+                <div className="s24-lock-banner critical">
+                  🔒 Ventana cerrada. Pasaron más de 24hs sin actividad del contacto — WhatsApp no permite
+                  mandar mensajes libres hasta que el contacto vuelva a escribir. Podés reactivarla con una
+                  plantilla aprobada:
+                  {plantillasDisponibles.length === 0 ? (
+                    <div className="s24-plantillas-vacio">Este número todavía no tiene ninguna plantilla aprobada.</div>
+                  ) : (
+                    <div className="s24-plantillas-rapidas">
+                      {plantillasDisponibles.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="s24-plantilla-btn"
+                          onClick={() => reactivarConversacion(p.id)}
+                          disabled={reactivando}
+                        >
+                          {p.etiqueta}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {errorReactivar && <div className="s24-agenda-error" style={{ maxWidth: 'none' }}>{errorReactivar}</div>}
+                </div>
+              )}
 
               <div className="s24-bubbles">
                 {mensajes.map((m) => {
@@ -1035,12 +1133,12 @@ export default function InboxPage() {
                       </div>
                     )}
                     <div className="s24-composer">
-                      <label className="s24-attach" data-disabled={String(!puedeEscribir)}>
+                      <label className="s24-attach" data-disabled={String(!puedeEscribirTexto)}>
                         <IconoClip />
                         <input
                           type="file"
                           hidden
-                          disabled={!puedeEscribir}
+                          disabled={!puedeEscribirTexto}
                           onChange={(e) => {
                             const file = e.target.files?.[0]
                             if (file) setArchivoAdj(file)
@@ -1052,7 +1150,7 @@ export default function InboxPage() {
                         type="button"
                         className="s24-attach"
                         title="Insertar emoji"
-                        disabled={!puedeEscribir}
+                        disabled={!puedeEscribirTexto}
                         onClick={() => setPickerEmoji(pickerEmoji?.modo === 'composer' ? null : { modo: 'composer' })}
                       >
                         🙂
@@ -1060,10 +1158,16 @@ export default function InboxPage() {
                       <input
                         type="text"
                         placeholder={
-                          archivoAdj ? 'Agregar un mensaje (opcional)…' : puedeEscribir ? 'Escribir una respuesta…' : 'Tomá la conversación para responder'
+                          archivoAdj
+                            ? 'Agregar un mensaje (opcional)…'
+                            : puedeEscribirTexto
+                              ? 'Escribir una respuesta…'
+                              : puedeEscribir && !ventanaAbierta
+                                ? 'Ventana cerrada — el contacto debe escribir primero'
+                                : 'Tomá la conversación para responder'
                         }
                         value={texto}
-                        disabled={!puedeEscribir}
+                        disabled={!puedeEscribirTexto}
                         onChange={(e) => {
                           setTexto(e.target.value)
                           if (e.target.value) avisarEscribiendo()
@@ -1071,7 +1175,7 @@ export default function InboxPage() {
                         onKeyDown={(e) => e.key === 'Enter' && enviar()}
                       />
                       {texto.trim() || archivoAdj ? (
-                        <button className="s24-btn primary round" onClick={enviar} disabled={!puedeEscribir || enviando} title="Enviar">
+                        <button className="s24-btn primary round" onClick={enviar} disabled={!puedeEscribirTexto || enviando} title="Enviar">
                           <IconoEnviar />
                         </button>
                       ) : (
@@ -1079,7 +1183,7 @@ export default function InboxPage() {
                           type="button"
                           className="s24-attach"
                           title="Grabar audio"
-                          disabled={!puedeEscribir}
+                          disabled={!puedeEscribirTexto}
                           onClick={iniciarGrabacion}
                         >
                           <IconoMic />

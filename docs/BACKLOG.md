@@ -22,11 +22,15 @@ mueve al `ROADMAP.md` en la fase que corresponda.
    Meta (`APPROVED`, categoría final `MARKETING` — Meta la recategorizó de UTILITY
    durante la revisión, id `887680860605104`, WABA `191950227325628`, idioma `es_AR`,
    parámetro NAMED `nombre`). `enviarPlantillaPorKapso` en kapso/client.ts, botón
-   "Iniciar conversación" en la Agenda para contactos sin chat, `POST
-   /api/contactos/[waId]/conversacion`. La plantilla queda configurada por número vía
-   env vars (`WA_<PREFIX>_TEMPLATE_REABRIR*`) — falta repetir el trámite de aprobación
-   en Meta para Dealers y Abonados cuando haga falta arrancar conversaciones ahí
-   también.
+   "Iniciar conversación" en la Agenda para contactos sin chat, y en el hilo mismo un
+   banner rojo "Ventana cerrada" con una fila de plantillas rápidas (una por ahora) para
+   reactivar una conversación existente que ya pasó las 24hs — mismo patrón que Aires de
+   Paz. `NumeroWhatsapp.plantillasRapidas` es un array (no una sola), configurado vía env
+   vars numeradas `WA_<PREFIX>_TEMPLATE_<n>_*` — se pueden sumar más plantillas sin tocar
+   código. `GET /api/plantillas` para que el frontend sepa cuáles hay por número, `POST
+   /api/contactos/[waId]/conversacion` (con `plantillaId`) para mandarla. Falta repetir
+   el trámite de aprobación en Meta para Dealers y Abonados, y reescribir el texto para
+   apuntar a UTILITY (MARKETING sale más caro) — ver charla sobre esto.
 7. Mensaje automático fuera de horario de atención — distinto según si se detecta algo
    urgente (ver #9), configurable por línea de negocio y por horario/feriados; si es
    urgente, escalar de verdad a un celular de guardia, no solo dejarlo en la cola.
