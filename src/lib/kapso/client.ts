@@ -219,6 +219,23 @@ export type ContactoKapso = {
  * darlo por bueno del todo (mismo criterio que el resto de este archivo, ver
  * comentarios de parseWebhook.ts sobre "confirmado contra tráfico real").
  */
+type ContactoKapsoRaw = { id: string; wa_id?: string; waId?: string; profile_name?: string; profileName?: string; customer_id?: string }
+type PaginaContactosKapso = { data?: ContactoKapsoRaw[]; paging?: { next?: string; cursors?: { after?: string } } }
+
+// Tope defensivo de páginas — la doc de Kapso no confirma el shape exacto de paginación
+// (se asume el estándar de Meta Graph API: paging.next / paging.cursors.after), así que
+// esto corta un loop infinito si la respuesta viniera con una forma inesperada que
+// nunca deje de "tener siguiente página".
+const MAX_PAGINAS_CONTACTOS = 20
+
+/**
+ * Trae TODOS los contactos del número, no solo la primera página — antes se pedía una
+ * sola tanda de 50 y listo, así que un número con más de 50 contactos dejaba afuera a
+ * cualquiera que estuviera más allá de esa primera página (bug real: un contacto con
+ * conversación activa no aparecía en la agenda). Sigue paginando mientras la respuesta
+ * traiga `paging.next` (Kapso/Meta ya arma esa URL completa, se usa tal cual) o
+ * `paging.cursors.after` (se arma la siguiente request con ese cursor a mano).
+ */
 export async function listarContactosKapso(
   numero: NumeroWhatsapp,
   opts: { search?: string; limit?: number } = {},
@@ -226,19 +243,35 @@ export async function listarContactosKapso(
   // Confirmado contra tráfico real: el path /{phoneNumberId}/contacts existe (bien), pero
   // Kapso rechaza limit=200 con 400 "Invalid limit parameter" — se baja a 50 (mismo valor
   // del ejemplo de la doc oficial del SDK) hasta confirmar el máximo real permitido.
-  const params = new URLSearchParams()
-  params.set('limit', String(Math.min(opts.limit ?? 50, 50)))
+  const limite = Math.min(opts.limit ?? 50, 50)
+  let url = `${KAPSO_BASE}/${numero.phoneNumberId}/contacts?${new URLSearchParams({ limit: String(limite) })}`
+  const crudos: ContactoKapsoRaw[] = []
 
-  const res = await fetch(`${KAPSO_BASE}/${numero.phoneNumberId}/contacts?${params.toString()}`, {
-    headers: { 'X-API-Key': numero.kapsoApiKey },
-  })
+  for (let pagina = 0; pagina < MAX_PAGINAS_CONTACTOS && url; pagina++) {
+    const res = await fetch(url, { headers: { 'X-API-Key': numero.kapsoApiKey } })
+    if (!res.ok) {
+      throw new Error(`Kapso ${numero.id} (contacts) -> ${res.status}: ${await res.text()}`)
+    }
 
-  if (!res.ok) {
-    throw new Error(`Kapso ${numero.id} (contacts) -> ${res.status}: ${await res.text()}`)
+    const data = (await res.json()) as PaginaContactosKapso
+    crudos.push(...(data.data ?? []))
+
+    if (data.paging?.next) {
+      url = data.paging.next
+    } else if (data.paging?.cursors?.after) {
+      url = `${KAPSO_BASE}/${numero.phoneNumberId}/contacts?${new URLSearchParams({ limit: String(limite), after: data.paging.cursors.after })}`
+    } else {
+      // Sin campo de paginación reconocido — si esta página vino llena (=== limite) pero
+      // no hay forma de pedir la siguiente, se corta acá aunque falten contactos. Se
+      // loguea el shape real de `paging` para poder ajustar esto sin adivinar de nuevo.
+      if (crudos.length === limite * (pagina + 1)) {
+        console.error(`[listarContactosKapso] posible paginación no reconocida para ${numero.id} — paging recibido:`, JSON.stringify(data.paging))
+      }
+      url = ''
+    }
   }
 
-  const data = (await res.json()) as { data?: { id: string; wa_id?: string; waId?: string; profile_name?: string; profileName?: string; customer_id?: string }[] }
-  const contactos = (data.data ?? []).map((c) => ({
+  const contactos = crudos.map((c) => ({
     id: c.id,
     waId: c.wa_id ?? c.waId ?? '',
     profileName: c.profile_name ?? c.profileName,
