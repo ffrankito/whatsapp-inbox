@@ -158,6 +158,10 @@ export default function InboxPage() {
   const [agentesConocidos, setAgentesConocidos] = useState<Agente[]>([])
   const [filtroAgenteId, setFiltroAgenteId] = useState('')
   const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null)
+  // Panel "Archivos y adjuntos" de la conversación (como en WhatsApp, al tocar el
+  // nombre del contacto) — se arma con los mensajes ya cargados, no pide nada nuevo
+  // al servidor.
+  const [panelArchivos, setPanelArchivos] = useState(false)
   // Agenda de contactos (Kapso) del número activo — vista alternativa a la lista de
   // conversaciones, no un panel aparte, para no romper el layout de 3 columnas ya armado.
   const [vistaAgenda, setVistaAgenda] = useState(false)
@@ -315,6 +319,7 @@ export default function InboxPage() {
   }, [conversaciones])
   useEffect(() => {
     seleccionadaIdRef.current = seleccionadaId
+    setPanelArchivos(false)
   }, [seleccionadaId])
 
   // "No leída" es una propiedad de la conversación en sí (vistoHastaMensajeId, en el
@@ -477,6 +482,18 @@ export default function InboxPage() {
   // Hay que tomar la conversación antes de poder responder — no alcanza con que esté
   // libre (antes dejaba responder a cualquiera mientras nadie más la hubiera tomado).
   const puedeEscribir = !!seleccionada && seleccionada.estado === 'asignada' && esMia
+
+  // Archivos y adjuntos de la conversación activa (como en WhatsApp al tocar el nombre
+  // del contacto) — se arma con los mensajes ya cargados, sin pedir nada nuevo.
+  const adjuntosDeLaConversacion = useMemo(() => {
+    const conAdjunto = mensajes.filter((m): m is Mensaje & { adjunto: Adjunto } => !!m.adjunto)
+    return {
+      imagenes: conAdjunto.filter((m) => m.adjunto.tipo === 'image' || m.adjunto.tipo === 'sticker'),
+      videos: conAdjunto.filter((m) => m.adjunto.tipo === 'video'),
+      documentos: conAdjunto.filter((m) => m.adjunto.tipo === 'document'),
+      audios: conAdjunto.filter((m) => m.adjunto.tipo === 'audio'),
+    }
+  }, [mensajes])
 
   // Abre un documento (PDF/DOCX/etc.) en una pestaña nueva, pasando por nuestro proxy en
   // vez de linkear directo a la URL de Kapso — así se abre inline en el visor nativo del
@@ -857,11 +874,18 @@ export default function InboxPage() {
                   <button type="button" className="s24-mobile-back" onClick={() => setSeleccionadaId(null)} aria-label="Volver a la lista">
                     ←
                   </button>
-                  <span className="s24-avatar lg">{iniciales(seleccionada.fullName || seleccionada.contactName || seleccionada.phone || '?')}</span>
-                  <span className="who-text">
-                    <span className="name">{seleccionada.fullName || seleccionada.contactName || 'Sin nombre'}</span>
-                    <span className="id">{seleccionada.phone}</span>
-                  </span>
+                  <button
+                    type="button"
+                    className="s24-thread-who-btn"
+                    onClick={() => setPanelArchivos(true)}
+                    title="Ver archivos y adjuntos de esta conversación"
+                  >
+                    <span className="s24-avatar lg">{iniciales(seleccionada.fullName || seleccionada.contactName || seleccionada.phone || '?')}</span>
+                    <span className="who-text">
+                      <span className="name">{seleccionada.fullName || seleccionada.contactName || 'Sin nombre'}</span>
+                      <span className="id">{seleccionada.phone}</span>
+                    </span>
+                  </button>
                 </div>
                 <div className="thread-actions">
                   {(!seleccionada.estado || seleccionada.estado === 'sin_asignar') && (
@@ -1076,6 +1100,56 @@ export default function InboxPage() {
             <IconoX />
           </button>
           <img src={imagenAmpliada} alt="Imagen ampliada" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+
+      {panelArchivos && seleccionada && (
+        <div className="s24-lightbox" onClick={() => setPanelArchivos(false)}>
+          <button type="button" className="s24-lightbox-cerrar" onClick={() => setPanelArchivos(false)} aria-label="Cerrar">
+            <IconoX />
+          </button>
+          <div className="s24-panel-archivos" onClick={(e) => e.stopPropagation()}>
+            <h2>Archivos y adjuntos</h2>
+            <p className="sub">{seleccionada.fullName || seleccionada.contactName || seleccionada.phone}</p>
+            {Object.values(adjuntosDeLaConversacion).every((lista) => lista.length === 0) ? (
+              <div className="empty">Todavía no se compartió ningún archivo en esta conversación.</div>
+            ) : (
+              <>
+                {(adjuntosDeLaConversacion.imagenes.length > 0 || adjuntosDeLaConversacion.videos.length > 0) && (
+                  <section>
+                    <h3>Fotos y videos ({adjuntosDeLaConversacion.imagenes.length + adjuntosDeLaConversacion.videos.length})</h3>
+                    <div className="s24-panel-grid">
+                      {[...adjuntosDeLaConversacion.imagenes, ...adjuntosDeLaConversacion.videos].map((m) => (
+                        <div key={m.id} className="s24-panel-thumb">
+                          <Adjunto adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} onAbrirDocumento={abrirDocumento} />
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+                {adjuntosDeLaConversacion.documentos.length > 0 && (
+                  <section>
+                    <h3>Documentos ({adjuntosDeLaConversacion.documentos.length})</h3>
+                    <div className="s24-panel-lista">
+                      {adjuntosDeLaConversacion.documentos.map((m) => (
+                        <Adjunto key={m.id} adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} onAbrirDocumento={abrirDocumento} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+                {adjuntosDeLaConversacion.audios.length > 0 && (
+                  <section>
+                    <h3>Audios ({adjuntosDeLaConversacion.audios.length})</h3>
+                    <div className="s24-panel-lista">
+                      {adjuntosDeLaConversacion.audios.map((m) => (
+                        <Adjunto key={m.id} adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} onAbrirDocumento={abrirDocumento} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
