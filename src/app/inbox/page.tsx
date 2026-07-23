@@ -905,7 +905,7 @@ export default function InboxPage() {
               key={n.id}
               className="s24-num-btn"
               data-numero={n.id}
-              data-active={String(n.id === numeroActivo)}
+              data-active={String(n.id === numeroActivo && !instagramSeleccionado)}
               onClick={() => {
                 setInstagramSeleccionado(false)
                 if (n.id !== numeroActivo) {
@@ -924,7 +924,7 @@ export default function InboxPage() {
             </button>
           ))}
 
-          <div className="eyebrow s24-canales-divisor">Otros canales</div>
+          <div className="eyebrow s24-canales-divisor">Redes sociales</div>
           <button
             type="button"
             className="s24-num-btn"
@@ -944,13 +944,16 @@ export default function InboxPage() {
 
         {instagramSeleccionado && (
           <div className="s24-instagram-placeholder">
-            <IconoInstagram grande />
-            <h2>Instagram</h2>
-            <p>
-              Ya está conectado el webhook con Meta y confirmado que recibe mensajes reales —
-              todavía falta la parte visible: guardar las conversaciones, armar la agenda de
-              contactos, y poder responder desde acá. Se termina de armar pronto.
-            </p>
+            <div className="s24-instagram-placeholder-card">
+              <span className="s24-instagram-placeholder-ico"><IconoInstagram grande /></span>
+              <h2>Instagram</h2>
+              <p>
+                Ya está conectado el webhook con Meta y confirmado que recibe mensajes reales —
+                todavía falta la parte visible: guardar las conversaciones, armar la agenda de
+                contactos, y poder responder desde acá.
+              </p>
+              <span className="s24-chip lock">En construcción</span>
+            </div>
           </div>
         )}
 

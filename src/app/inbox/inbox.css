@@ -160,12 +160,23 @@
   display: none;
 }
 .s24-instagram-placeholder {
-  grid-column: 2 / -1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; text-align: center; gap: 10px; padding: 40px;
-  background: var(--surface); color: #c1345a;
+  grid-column: 2 / -1; display: flex; align-items: center; justify-content: center;
+  padding: 40px; background: var(--surface-soft);
 }
-.s24-instagram-placeholder h2 { color: var(--text); font-size: 18px; margin: 4px 0 0; }
-.s24-instagram-placeholder p { color: var(--text-dim); font-size: 13px; max-width: 380px; line-height: 1.6; margin: 0; }
+.s24-instagram-placeholder-card {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
+  max-width: 360px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; box-shadow: var(--shadow-md); padding: 36px 32px;
+}
+.s24-instagram-placeholder-ico {
+  width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; background: #fbe4ea; color: #c1345a; flex: none;
+}
+.s24-instagram-placeholder-card h2 { color: var(--text); font-size: 18px; margin: 4px 0 0; }
+.s24-instagram-placeholder-card p { color: var(--text-dim); font-size: 13px; line-height: 1.6; margin: 0; }
+@media (prefers-color-scheme: dark) {
+  .s24-instagram-placeholder-ico { background: #3a1c26; }
+}
 .s24-console > * + * { border-left: 1px solid var(--border); }
 
 /* ── Scroll fino y discreto en los 3 paneles que scrollean (default del sistema
