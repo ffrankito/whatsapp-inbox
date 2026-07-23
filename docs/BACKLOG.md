@@ -99,9 +99,10 @@ mueve al `ROADMAP.md` en la fase que corresponda.
     src="..."` no pueden mandar headers custom — sin sacarlo, fotos/audios/videos
     guardados en MinIO nunca hubieran cargado. Mensajes viejos con adjuntos en `data:`
     (de antes de este cambio) se siguen sirviendo igual, sin migración — conviven los dos
-    formatos sin romper nada. **Verificado en vivo contra Railway**: webhook simulado con
-    una imagen real → se bajó, se subió a MinIO, y se confirmó con un `HeadObject` directo
-    contra el bucket que el archivo quedó ahí con el Content-Type y tamaño correctos.
-    Datos de prueba limpiados después. Falta todavía probar el lado de LECTURA (que
-    `/api/adjunto/proxy` sirva bien el archivo de vuelta al navegador) con un caso real
-    desde la UI, no solo confirmado a nivel de API/base de datos.
+    formatos sin romper nada. **Verificado en vivo de punta a punta, subida y bajada**:
+    webhook simulado con una imagen real → se bajó, se subió a MinIO (confirmado con
+    `HeadObject` directo contra el bucket) → y se vio bien desde `/inbox` de verdad (la
+    persona lo abrió en el navegador y confirmó que la imagen se ve normal, no rota ni
+    forzando descarga). Datos de prueba limpiados después (Postgres + el archivo en
+    MinIO). Sigue pendiente probar documento/audio/video puntualmente (mismo código,
+    debería andar igual, pero solo se confirmó con imagen).
