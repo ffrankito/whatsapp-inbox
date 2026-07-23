@@ -98,10 +98,14 @@
 .s24-inbox [data-numero="fullapp"] {
   --numero-accent: #6d63c9; --numero-accent-dim: #564fa3; --numero-accent-tint: #eae8fb;
 }
+.s24-inbox [data-numero="instagram"] {
+  --numero-accent: #c1345a; --numero-accent-dim: #9c2947; --numero-accent-tint: #fbe4ea;
+}
 @media (prefers-color-scheme: dark) {
   .s24-inbox [data-numero="dealers"] { --numero-accent-tint: #3a2c14; }
   .s24-inbox [data-numero="abonados"] { --numero-accent-tint: #17332f; }
   .s24-inbox [data-numero="fullapp"] { --numero-accent-tint: #26224a; }
+  .s24-inbox [data-numero="instagram"] { --numero-accent-tint: #3a1c26; }
 }
 
 /* ── Barra superior ───────────────────────────────────────────────────────── */
@@ -147,6 +151,21 @@
   flex: 1; display: grid; grid-template-columns: 210px 280px 1fr; min-height: 0;
   background: var(--bg);
 }
+
+/* Instagram — todavía sin backend real, ver docs/BACKLOG.md. Mientras tanto se oculta
+   la lista/hilo de WhatsApp (que se queda cargada de fondo, apuntando al último número
+   activo) y se muestra un cartel en su lugar, ocupando las mismas 2 columnas. */
+.s24-console[data-instagram="true"] > .s24-convlist,
+.s24-console[data-instagram="true"] > .s24-thread {
+  display: none;
+}
+.s24-instagram-placeholder {
+  grid-column: 2 / -1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center; gap: 10px; padding: 40px;
+  background: var(--surface); color: #c1345a;
+}
+.s24-instagram-placeholder h2 { color: var(--text); font-size: 18px; margin: 4px 0 0; }
+.s24-instagram-placeholder p { color: var(--text-dim); font-size: 13px; max-width: 380px; line-height: 1.6; margin: 0; }
 .s24-console > * + * { border-left: 1px solid var(--border); }
 
 /* ── Scroll fino y discreto en los 3 paneles que scrollean (default del sistema
@@ -181,6 +200,7 @@
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--text-faint); padding: 2px 10px 10px;
 }
+.s24-canales-divisor { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
 .s24-num-btn {
   all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 5px;
   padding: 11px 12px; border-radius: 12px; border: 1px solid transparent;

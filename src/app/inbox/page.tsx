@@ -188,6 +188,10 @@ export default function InboxPage() {
   // Agenda de contactos (Kapso) del número activo — vista alternativa a la lista de
   // conversaciones, no un panel aparte, para no romper el layout de 3 columnas ya armado.
   const [vistaAgenda, setVistaAgenda] = useState(() => leerNavGuardada().vistaAgenda ?? false)
+  // Instagram todavía no tiene backend de verdad (ver docs/BACKLOG.md) — esto solo
+  // muestra un placeholder por arriba de la lista/hilo de WhatsApp, sin tocar nada de
+  // su lógica (numeroActivo sigue apuntando al último número de WhatsApp elegido).
+  const [instagramSeleccionado, setInstagramSeleccionado] = useState(false)
   // Navegación por pantallas en mobile (ver .s24-console[data-pantalla-mobile] en
   // inbox.css) — en desktop las 3 columnas se ven todas juntas y esto no se usa para
   // nada. 'hilo' se deriva de si hay conversación seleccionada, no es un estado propio.
@@ -888,7 +892,12 @@ export default function InboxPage() {
         </div>
       </div>
 
-      <div className="s24-console" data-numero={numeroActivo} data-pantalla-mobile={seleccionada ? 'hilo' : pantallaMobile}>
+      <div
+        className="s24-console"
+        data-numero={numeroActivo}
+        data-instagram={String(instagramSeleccionado)}
+        data-pantalla-mobile={seleccionada ? 'hilo' : pantallaMobile}
+      >
         <nav className="s24-numbers">
           <div className="eyebrow">Números</div>
           {NUMEROS.map((n) => (
@@ -898,6 +907,7 @@ export default function InboxPage() {
               data-numero={n.id}
               data-active={String(n.id === numeroActivo)}
               onClick={() => {
+                setInstagramSeleccionado(false)
                 if (n.id !== numeroActivo) {
                   setNumeroActivo(n.id)
                   setSeleccionadaId(null)
@@ -913,7 +923,36 @@ export default function InboxPage() {
               </span>
             </button>
           ))}
+
+          <div className="eyebrow s24-canales-divisor">Otros canales</div>
+          <button
+            type="button"
+            className="s24-num-btn"
+            data-numero="instagram"
+            data-active={String(instagramSeleccionado)}
+            onClick={() => {
+              setInstagramSeleccionado(true)
+              setPantallaMobile('lista')
+            }}
+          >
+            <span className="row1">
+              <span className="s24-num-ico"><IconoInstagram /></span>
+              <span className="name">Instagram</span>
+            </span>
+          </button>
         </nav>
+
+        {instagramSeleccionado && (
+          <div className="s24-instagram-placeholder">
+            <IconoInstagram grande />
+            <h2>Instagram</h2>
+            <p>
+              Ya está conectado el webhook con Meta y confirmado que recibe mensajes reales —
+              todavía falta la parte visible: guardar las conversaciones, armar la agenda de
+              contactos, y poder responder desde acá. Se termina de armar pronto.
+            </p>
+          </div>
+        )}
 
         <div className="s24-convlist">
           <div className="s24-convlist-tabs">
@@ -1384,6 +1423,17 @@ function IconoApp() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="6" y="2" width="12" height="20" rx="2" />
       <line x1="10" y1="19" x2="14" y2="19" />
+    </svg>
+  )
+}
+
+function IconoInstagram({ grande }: { grande?: boolean }) {
+  const s = grande ? 40 : 16
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
     </svg>
   )
 }
