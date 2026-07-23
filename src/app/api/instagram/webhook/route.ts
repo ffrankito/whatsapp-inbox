@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { webhookLimitado } from '@/lib/rateLimit'
+import { parsearMensajeEntrante } from '@/lib/instagram/parseWebhook'
 
 // Instagram, directo contra Meta (no pasa por Kapso, ver docs/BACKLOG.md). Mismo criterio
 // de seguridad que el webhook de Kapso: firma HMAC verificada antes de confiar en nada
@@ -47,11 +48,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  // TODO: todavía no hay parser (equivalente a parseWebhook.ts de Kapso) — primero hay
-  // que confirmar el shape real contra tráfico real (DM de prueba + comentario de
-  // prueba), no adivinarlo. Por ahora solo se loguea para poder ver el payload real
-  // apenas llegue el primer evento de verdad.
-  console.log('[Instagram webhook] evento recibido:', JSON.stringify(payload))
+  const entrante = parsearMensajeEntrante(payload)
+  if (entrante) {
+    console.log('[Instagram webhook] mensaje parseado:', entrante)
+    // TODO: todavía no hay dónde guardarlo — falta el equivalente de
+    // standalone/store.ts para Instagram (tabla propia, agenda, UI). Por ahora solo se
+    // confirma que el parser funciona bien contra el shape real.
+  } else {
+    // No es un mensaje de texto reconocido (podría ser un comentario, una reacción, un
+    // adjunto — shapes todavía no confirmados contra tráfico real) — se loguea entero
+    // para poder ir confirmando cada caso nuevo a medida que aparezca.
+    console.log('[Instagram webhook] evento sin parsear (revisar shape):', JSON.stringify(payload))
+  }
 
   return NextResponse.json({ ok: true })
 }
