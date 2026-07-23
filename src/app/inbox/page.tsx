@@ -182,7 +182,20 @@ function iconoYEtiquetaAdjunto(tipo: TipoAdjunto): { icono: string; etiqueta: st
 
 export default function InboxPage() {
   const [ssoListo, setSsoListo] = useState(false)
-  const [tema, setTema] = useState<'light' | 'dark'>(() => leerTemaGuardado() ?? temaDelSistema())
+  // Arranca siempre en 'light' (server y cliente, para que coincidan en el primer
+  // render — el server no tiene localStorage) y recién después de montar se corrige
+  // con un cambio de estado real si había un tema guardado distinto. Leerlo directo en
+  // el useState inicial (como se hace con leerNavGuardada) rompía acá porque el switch
+  // es un <input type="checkbox"> controlado: React no siempre vuelve a sincronizar su
+  // `checked` en la hidratación si el valor "ya viene así desde el inicio" en vez de
+  // llegar por un setState posterior — quedaba el switch marcando un tema que el fondo
+  // ya no tenía aplicado.
+  const [tema, setTema] = useState<'light' | 'dark'>('light')
+  useEffect(() => {
+    const guardado = leerTemaGuardado() ?? temaDelSistema()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTema(guardado)
+  }, [])
   const alternarTema = useCallback(() => {
     setTema((actual) => {
       const nuevo = actual === 'dark' ? 'light' : 'dark'
