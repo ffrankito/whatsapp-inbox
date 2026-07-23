@@ -945,7 +945,65 @@ export default function InboxPage() {
         {instagramSeleccionado && (
           <div className="s24-instagram-placeholder">
             <div className="s24-instagram-placeholder-card">
-              <span className="s24-instagram-placeholder-ico"><IconoInstagram grande /></span>
+              <div className="s24-tv-wrapper">
+                <div className="s24-tv-main">
+                  <div className="s24-tv-antenna">
+                    <div className="s24-tv-antenna-shadow"></div>
+                    <div className="s24-tv-a1"></div>
+                    <div className="s24-tv-a1d"></div>
+                    <div className="s24-tv-a2"></div>
+                    <div className="s24-tv-a2d"></div>
+                  </div>
+                  <div className="s24-tv-set">
+                    <div className="s24-tv-curve">
+                      <svg
+                        className="s24-tv-curve-svg"
+                        version="1.1"
+                        xmlns="http://www.w3.org/2000/svg"
+                        xmlnsXlink="http://www.w3.org/1999/xlink"
+                        viewBox="0 0 189.929 189.929"
+                      >
+                        <path
+                          d="M70.343,70.343c-30.554,30.553-44.806,72.7-39.102,115.635l-29.738,3.951C-5.442,137.659,11.917,86.34,49.129,49.13
+                      C86.34,11.918,137.664-5.445,189.928,1.502l-3.95,29.738C143.041,25.54,100.895,39.789,70.343,70.343z"
+                        ></path>
+                      </svg>
+                    </div>
+                    <div className="s24-tv-display">
+                      <div className="s24-tv-screen-out">
+                        <div className="s24-tv-screen-out1">
+                          <div className="s24-tv-screen-mobile">
+                            <span className="s24-tv-notfound-text">PRONTO</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="s24-tv-lines">
+                      <div className="s24-tv-line1"></div>
+                      <div className="s24-tv-line2"></div>
+                      <div className="s24-tv-line3"></div>
+                    </div>
+                    <div className="s24-tv-buttons">
+                      <div className="s24-tv-b1"><div></div></div>
+                      <div className="s24-tv-b2"></div>
+                      <div className="s24-tv-speakers">
+                        <div className="s24-tv-g1">
+                          <div className="s24-tv-g11"></div>
+                          <div className="s24-tv-g12"></div>
+                          <div className="s24-tv-g13"></div>
+                        </div>
+                        <div className="s24-tv-g"></div>
+                        <div className="s24-tv-g"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="s24-tv-bottom">
+                    <div className="s24-tv-base1"></div>
+                    <div className="s24-tv-base2"></div>
+                    <div className="s24-tv-base3"></div>
+                  </div>
+                </div>
+              </div>
               <h2>Instagram</h2>
               <p>
                 Ya está conectado el webhook con Meta y confirmado que recibe mensajes reales —
