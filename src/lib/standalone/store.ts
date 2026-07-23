@@ -158,7 +158,14 @@ export async function agregarMensaje(
     waId: opts.waId ?? null,
   }
   const [insertado] = await db().insert(mensajesStandalone).values(nuevo).returning()
-  await db().update(conversacionesStandalone).set({ actualizadoEn: new Date() }).where(eq(conversacionesStandalone.id, conversationId))
+  // Un mensaje saliente (el agente respondiendo) cuenta como "visto" hasta ahí — si no,
+  // lastMessageId avanza al mensaje propio pero vistoHastaMensajeId se queda en el
+  // inbound anterior, y la conversación vuelve a aparecer como "sin leer" apenas se sale
+  // de ella, aunque el último mensaje sea nuestro.
+  await db()
+    .update(conversacionesStandalone)
+    .set({ actualizadoEn: new Date(), ...(direction === 'outbound' ? { vistoHastaMensajeId: insertado.id } : {}) })
+    .where(eq(conversacionesStandalone.id, conversationId))
   return aStandaloneMensaje(insertado)
 }
 
