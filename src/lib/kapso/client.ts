@@ -27,13 +27,22 @@ const TAMANO_MAXIMO_DESCARGA = 16 * 1024 * 1024
 export async function persistirAdjuntoEntrante(url: string, nombreArchivo?: string): Promise<string | null> {
   try {
     const res = await fetch(url)
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.error(`[persistirAdjuntoEntrante] Kapso devolvió ${res.status} al bajar el archivo, se usa el link original:`, url)
+      return null
+    }
 
     const declarado = Number(res.headers.get('content-length') ?? 0)
-    if (declarado > TAMANO_MAXIMO_DESCARGA) return null
+    if (declarado > TAMANO_MAXIMO_DESCARGA) {
+      console.error(`[persistirAdjuntoEntrante] archivo demasiado grande (${declarado} bytes, máximo ${TAMANO_MAXIMO_DESCARGA}), se usa el link original:`, url)
+      return null
+    }
 
     const buffer = Buffer.from(await res.arrayBuffer())
-    if (buffer.byteLength > TAMANO_MAXIMO_DESCARGA) return null
+    if (buffer.byteLength > TAMANO_MAXIMO_DESCARGA) {
+      console.error(`[persistirAdjuntoEntrante] archivo demasiado grande (${buffer.byteLength} bytes, máximo ${TAMANO_MAXIMO_DESCARGA}), se usa el link original:`, url)
+      return null
+    }
 
     const mime = inferirContentType(nombreArchivo, res.headers.get('content-type')?.split(';')[0]?.trim())
     return await subirArchivo(buffer, mime, nombreArchivo)
