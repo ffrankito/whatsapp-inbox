@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1093.0",
     "@breezystack/lamejs": "^1.2.7",
     "crypto-js": "^4.2.0",
     "drizzle-orm": "^0.45.2",

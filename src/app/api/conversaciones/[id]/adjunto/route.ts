@@ -7,6 +7,7 @@ import { agenteActual } from '@/lib/agente'
 import { obtenerConversacion as obtenerDemo, puedeEscribirDemo, agregarMensajeDemo } from '@/lib/demo/store'
 import { obtenerConversacion as obtenerStandalone, puedeEscribir, agregarMensaje as agregarMensajeStandalone } from '@/lib/standalone/store'
 import { subirMediaAKapso, enviarMediaPorKapso } from '@/lib/kapso/client'
+import { subirArchivo } from '@/lib/storage'
 import { emitirEvento } from '@/lib/events'
 import type { TipoAdjunto } from '@/lib/mensaje'
 
@@ -100,9 +101,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'No se pudo enviar el archivo' }, { status: 502 })
     }
 
-    // Para mostrarlo en nuestro propio hilo alcanza con una vista previa local — Kapso
-    // no nos devuelve una URL pública propia para lo que nosotros mandamos.
-    const url = await comoDataUrl(archivo, mime)
+    // Para mostrarlo en nuestro propio hilo hace falta guardar el archivo — Kapso no nos
+    // devuelve una URL pública propia para lo que nosotros mandamos. Va a nuestro storage
+    // propio (MinIO, ver src/lib/storage.ts), no como base64 adentro de Postgres.
+    const url = await subirArchivo(Buffer.from(await archivo.arrayBuffer()), mime, archivo.name)
     const nuevo = await agregarMensajeStandalone(id, captionParaEnviar ?? '', 'outbound', { url, tipo, nombre: archivo.name }, { status: 'sent', waId })
     emitirEvento({ tipo: 'mensaje', numero: numero.id })
     return NextResponse.json({ ok: true, messageId: nuevo?.id })

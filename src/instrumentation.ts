@@ -26,6 +26,9 @@ export async function register() {
   if (STANDALONE_MODE) {
     requerir('DATABASE_URL')
     requerir('KAPSO_APP_SECRET')
+    requerir('MINIO_ENDPOINT')
+    requerir('MINIO_ACCESS_KEY')
+    requerir('MINIO_SECRET_KEY')
 
     // Al menos un número tiene que estar configurado del todo — si no, no hay con qué
     // número hablar. No se exige que estén los 3: es normal ir conectando de a uno.

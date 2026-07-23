@@ -84,8 +84,22 @@ mueve al `ROADMAP.md` en la fase que corresponda.
 19. Pendiente, no bloqueante: `src/app/inbox/page.tsx` ya tiene ~1800 líneas — conviene
     partirlo en componentes/hooks separados antes de que siga creciendo, pero es un
     refactor grande que no se hizo esta noche a propósito (riesgo de romper algo justo
-    antes de una prueba en vivo). Guardar todos los adjuntos como `data:` (base64) en una
-    sola columna jsonb de Postgres también puede volverse un problema de escala con
-    tráfico real — cada `listarConversaciones()` trae ese blob completo aunque solo haga
-    falta el texto — conviene evaluar mover a storage de objetos (S3/R2/etc.) más
-    adelante si el volumen crece.
+    antes de una prueba en vivo).
+20. ~~Guardar adjuntos como base64 en Postgres~~ — **hecho**: se mueven a storage de
+    objetos propio, **MinIO auto-hospedado en Railway** (no un servicio externo tipo
+    R2 — se eligió self-host porque a futuro esto se muda al servidor propio del data
+    center de la empresa, Fase 7, y ahí MinIO viaja con la app sin depender de nadie
+    externo). `src/lib/storage.ts` nuevo (cliente S3-compatible vía `@aws-sdk/client-s3`,
+    endpoint por la red PRIVADA de Railway, bucket privado — nunca un link público
+    directo). `adjunto.url` pasa a guardar una referencia interna (`s24storage://<key>`)
+    en vez del archivo entero; se sirve siempre a través del mismo `/api/adjunto/proxy`
+    ya autenticado que usábamos para los adjuntos de Kapso (ahora también entiende esta
+    referencia, además del link externo de Kapso). Se sacó el chequeo de CSRF de esa
+    ruta: es un GET de solo lectura sin efecto secundario, y `<img>/<video>/<audio>
+    src="..."` no pueden mandar headers custom — sin sacarlo, fotos/audios/videos
+    guardados en MinIO nunca hubieran cargado. Mensajes viejos con adjuntos en `data:`
+    (de antes de este cambio) se siguen sirviendo igual, sin migración — conviven los dos
+    formatos sin romper nada. **Sin probar en runtime todavía** (no se corrió local esta
+    noche a pedido explícito, el endpoint de MinIO además es de la red privada de Railway
+    y no se puede probar desde una máquina local de todas formas) — confirmar mandando
+    un archivo real después del próximo deploy.

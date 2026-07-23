@@ -7,18 +7,18 @@ import { encontrarOCrearConversacion, agregarMensaje, actualizarEstadoMensaje, a
 import { webhookLimitado } from '@/lib/rateLimit'
 import { emitirEvento } from '@/lib/events'
 import { parsearMensajeEntrante, parsearReaccionEntrante } from '@/lib/kapso/parseWebhook'
-import { descargarComoDataUrl } from '@/lib/kapso/client'
+import { persistirAdjuntoEntrante } from '@/lib/kapso/client'
 import type { Adjunto, EstadoMensaje } from '@/lib/mensaje'
 
-// Reemplaza el link externo de Kapso por el archivo bajado y guardado como data: URL en
-// nuestra propia base — así el archivo sigue disponible para siempre en el historial,
-// sin depender de cuánto dure el link de Kapso (no hay confirmación de eso, ver
-// descargarComoDataUrl). Si falla la descarga, se sigue usando el link original en vez
-// de perder el adjunto por completo.
+// Reemplaza el link externo de Kapso por el archivo bajado y subido a nuestro storage
+// propio (MinIO, ver src/lib/storage.ts) — así el archivo sigue disponible para siempre
+// en el historial, sin depender de cuánto dure el link de Kapso (no hay confirmación de
+// eso) ni de guardar el archivo entero adentro de Postgres. Si falla la descarga, se
+// sigue usando el link original en vez de perder el adjunto por completo.
 async function conAdjuntoPersistido(adjunto: Adjunto | undefined): Promise<Adjunto | undefined> {
   if (!adjunto) return adjunto
-  const dataUrl = await descargarComoDataUrl(adjunto.url, adjunto.nombre)
-  return dataUrl ? { ...adjunto, url: dataUrl } : adjunto
+  const referencia = await persistirAdjuntoEntrante(adjunto.url, adjunto.nombre)
+  return referencia ? { ...adjunto, url: referencia } : adjunto
 }
 
 // TODO: reemplazar por la location real una vez definido dónde vive cada instalación

@@ -1,30 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Readable } from 'node:stream'
 import { DEMO_MODE, STANDALONE_MODE } from '@/lib/mode'
 import { obtenerConversacion as obtenerDemo } from '@/lib/demo/store'
 import { obtenerConversacion as obtenerStandalone } from '@/lib/standalone/store'
-import { pedidoConfiable } from '@/lib/csrf'
 import { accionLimitada } from '@/lib/rateLimit'
 import { agenteActual } from '@/lib/agente'
 import { inferirContentType } from '@/lib/mime'
+import { esReferenciaStorage, descargarArchivo } from '@/lib/storage'
 
-// Kapso espeja los adjuntos entrantes a una URL propia (ver parseWebhook.ts) — nunca se
-// re-hostea en storage propio (ARCHITECTURE.md §17). Esta ruta existe solo para que los
-// documentos (PDF/DOCX/etc.) se abran inline en el navegador en vez de forzar "Guardar
-// como": Kapso manda Content-Disposition: attachment para esos, y como adjunto.url es
-// cross-origin, el atributo `download` del <a> no tiene ningún efecto sobre eso — el
-// único jeito de controlar la respuesta es haciendo el fetch nosotros y devolviéndola sin
-// ese header. No se usa para imagen/audio/video: esos ya se ven bien porque Kapso no les
-// manda ese header.
+// Dos fuentes posibles para un adjunto, las dos requieren pasar por acá para abrirse
+// inline en vez de forzar "Guardar como":
+// 1. Kapso espeja los adjuntos entrantes a una URL propia (ver parseWebhook.ts) —
+//    manda Content-Disposition: attachment, y como es cross-origin el atributo
+//    `download` del <a> no tiene ningún efecto sobre eso, hay que hacer el fetch
+//    nosotros y devolver la respuesta sin ese header.
+// 2. Los que ya se persistieron en nuestro storage propio (MinIO, ver src/lib/storage.ts,
+//    tanto entrantes re-hosteados como salientes que mandamos nosotros) — el bucket es
+//    privado a propósito, así que también hay que pasar por acá (con la misma
+//    autenticación del resto de la app) en vez de exponer un link público directo.
 const KAPSO_HOST_SUFFIX = '.kapso.ai'
 
 function esHostKapsoConfiable(hostname: string): boolean {
   return hostname === 'kapso.ai' || hostname.endsWith(KAPSO_HOST_SUFFIX)
 }
 
+// Sin el chequeo de CSRF (pedidoConfiable) a propósito: es una ruta GET de solo lectura,
+// sin ningún efecto secundario, y <img>/<video>/<audio> src="..." no pueden mandar el
+// header custom que exige esa función — un atacante que logre disparar este GET desde
+// otro sitio igual no puede LEER la respuesta (el navegador se lo bloquea por CORS, no
+// mandamos Access-Control-Allow-Origin), así que no hay nada que proteger acá que
+// agenteActual() no cubra ya. Mismo criterio que el resto de las rutas GET de la app
+// (conversaciones, contactos, etc.), ninguna exige este header tampoco.
 export async function GET(request: NextRequest) {
-  if (!pedidoConfiable(request)) {
-    return NextResponse.json({ error: 'Origen no confiable' }, { status: 403 })
-  }
   if (accionLimitada(request, 'adjunto-proxy')) {
     return NextResponse.json({ error: 'rate limited' }, { status: 429 })
   }
@@ -57,9 +64,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'No existe ese adjunto' }, { status: 404 })
   }
 
-  // Los adjuntos salientes en modo standalone se guardan como `data:` URL propia (no hay
-  // storage externo, ver ARCHITECTURE.md §17) — esos no pasan por acá, el frontend los
-  // linkea directo. Si llega uno así de todas formas, no hay nada que proxear.
+  // Mensajes de antes de este cambio pueden seguir teniendo el adjunto como `data:` URL
+  // propia (base64 adentro de Postgres) — esos no pasan por acá, el frontend los linkea
+  // directo. Si llega uno así de todas formas, no hay nada que proxear.
+  if (esReferenciaStorage(adjunto.url)) {
+    const archivo = await descargarArchivo(adjunto.url)
+    if (!archivo) {
+      return NextResponse.json({ error: 'No se pudo obtener el adjunto de nuestro storage' }, { status: 502 })
+    }
+    const contentType = inferirContentType(adjunto.nombre, archivo.contentType)
+    const headers: Record<string, string> = { 'Content-Type': contentType }
+    if (archivo.contentLength) headers['Content-Length'] = String(archivo.contentLength)
+    // A propósito SIN Content-Disposition: attachment — mismo criterio que el caso de
+    // Kapso más abajo, así el navegador lo abre inline en vez de forzar "Guardar como".
+    return new Response(Readable.toWeb(archivo.body) as ReadableStream, { headers })
+  }
+
   if (!adjunto.url.startsWith('http://') && !adjunto.url.startsWith('https://')) {
     return NextResponse.json({ error: 'Ese adjunto no se proxea' }, { status: 400 })
   }

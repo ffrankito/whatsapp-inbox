@@ -347,6 +347,8 @@ export default function InboxPage() {
   }, [conversaciones])
   useEffect(() => {
     seleccionadaIdRef.current = seleccionadaId
+    // Cerrar el panel al cambiar de conversación no se puede derivar del render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPanelArchivos(false)
   }, [seleccionadaId])
 
@@ -479,6 +481,8 @@ export default function InboxPage() {
   // cambiar de número (no hace falta poll).
   useEffect(() => {
     if (!ssoListo) return
+    // Fetch de datos externos, no hay forma de derivarlo del render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     cargarPlantillas(numeroActivo)
   }, [ssoListo, numeroActivo, cargarPlantillas])
 
@@ -1089,7 +1093,7 @@ export default function InboxPage() {
                         className={`s24-bubble ${m.direction === 'inbound' ? 'in' : 'out'}`}
                         data-media={String(!!esMediaVisual)}
                       >
-                        {m.adjunto && <Adjunto adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} onAbrirDocumento={abrirDocumento} />}
+                        {m.adjunto && <Adjunto adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} conversacionId={seleccionada.id} onAbrirDocumento={abrirDocumento} />}
                         {esMediaVisual && !caption && <span className="t sobre-media">{horaTick}</span>}
                         {caption && <span className="s24-bubble-text">{caption}</span>}
                         {!(esMediaVisual && !caption) && <span className="t">{horaTick}</span>}
@@ -1272,7 +1276,7 @@ export default function InboxPage() {
                     <div className="s24-panel-grid">
                       {[...adjuntosDeLaConversacion.imagenes, ...adjuntosDeLaConversacion.videos].map((m) => (
                         <div key={m.id} className="s24-panel-thumb">
-                          <Adjunto adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} onAbrirDocumento={abrirDocumento} />
+                          <Adjunto adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} conversacionId={seleccionada.id} onAbrirDocumento={abrirDocumento} />
                         </div>
                       ))}
                     </div>
@@ -1283,7 +1287,7 @@ export default function InboxPage() {
                     <h3>Documentos ({adjuntosDeLaConversacion.documentos.length})</h3>
                     <div className="s24-panel-lista">
                       {adjuntosDeLaConversacion.documentos.map((m) => (
-                        <Adjunto key={m.id} adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} onAbrirDocumento={abrirDocumento} />
+                        <Adjunto key={m.id} adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} conversacionId={seleccionada.id} onAbrirDocumento={abrirDocumento} />
                       ))}
                     </div>
                   </section>
@@ -1293,7 +1297,7 @@ export default function InboxPage() {
                     <h3>Audios ({adjuntosDeLaConversacion.audios.length})</h3>
                     <div className="s24-panel-lista">
                       {adjuntosDeLaConversacion.audios.map((m) => (
-                        <Adjunto key={m.id} adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} onAbrirDocumento={abrirDocumento} />
+                        <Adjunto key={m.id} adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} conversacionId={seleccionada.id} onAbrirDocumento={abrirDocumento} />
                       ))}
                     </div>
                   </section>
@@ -1735,43 +1739,61 @@ function Tick({ status }: { status?: EstadoMensaje }) {
   return <span className="s24-tick" title="Enviado">✓</span>
 }
 
+// Nuestro storage propio (MinIO) es un bucket PRIVADO — nunca es una URL que el
+// navegador pueda pedir directo, ni aunque quisiera (no tiene las credenciales). Todo lo
+// que quedó guardado ahí (fotos/audios/videos/documentos, ver src/lib/storage.ts) tiene
+// que pasar por /api/adjunto/proxy sí o sí, no solo los documentos como antes.
+const PREFIJO_STORAGE = 's24storage://'
+
 function Adjunto({
   adjunto,
   onAmpliar,
   mensajeId,
+  conversacionId,
   onAbrirDocumento,
 }: {
   adjunto: Adjunto
   onAmpliar: (url: string) => void
   mensajeId: string
+  conversacionId: string
   onAbrirDocumento: (mensajeId: string) => void
 }) {
+  const enNuestroStorage = adjunto.url.startsWith(PREFIJO_STORAGE)
+  const esLinkExternoDeKapso = adjunto.url.startsWith('http://') || adjunto.url.startsWith('https://')
+  // Si está en nuestro storage, la única forma de verlo es a través del proxy
+  // autenticado (el bucket es privado). Si es un link real de Kapso, se puede pedir
+  // directo (imagen/audio/video ya se ven bien así, Kapso no les manda
+  // Content-Disposition: attachment). Si es una `data:` URL vieja (de antes de este
+  // cambio), se usa tal cual, ya viene embebida.
+  const src = enNuestroStorage
+    ? `/api/adjunto/proxy?conversacionId=${encodeURIComponent(conversacionId)}&mensajeId=${encodeURIComponent(mensajeId)}`
+    : adjunto.url
+
   if (adjunto.tipo === 'image') {
     return (
       <img
         className="s24-adjunto-img"
-        src={adjunto.url}
+        src={src}
         alt={adjunto.nombre || 'Imagen'}
-        onClick={() => onAmpliar(adjunto.url)}
+        onClick={() => onAmpliar(src)}
       />
     )
   }
   if (adjunto.tipo === 'sticker') {
-    return <img className="s24-adjunto-sticker" src={adjunto.url} alt="Sticker" onClick={() => onAmpliar(adjunto.url)} />
+    return <img className="s24-adjunto-sticker" src={src} alt="Sticker" onClick={() => onAmpliar(src)} />
   }
   if (adjunto.tipo === 'video') {
-    return <video className="s24-adjunto-img" src={adjunto.url} controls />
+    return <video className="s24-adjunto-img" src={src} controls />
   }
   if (adjunto.tipo === 'audio') {
-    return <audio className="s24-adjunto-audio" src={adjunto.url} controls />
+    return <audio className="s24-adjunto-audio" src={src} controls />
   }
-  // Los documentos que llegan de Kapso son una URL http(s) externa — hay que pasar por
-  // el proxy para que se abran inline (ver /api/adjunto/proxy). Los que mandamos nosotros
-  // (o los que llegaron y ya se persistieron como copia propia, ver descargarComoDataUrl)
-  // quedan como `data:` URL — esos no pasan por el proxy (no hay nada que proxear), pero
-  // tienen que abrir inline igual: SIN el atributo `download`, si no el navegador fuerza
-  // "Guardar como" para cualquier data: URL sin importar el tipo de archivo.
-  if (adjunto.url.startsWith('http://') || adjunto.url.startsWith('https://')) {
+  // Documentos: si hace falta pasar por el proxy (nuestro storage o un link http(s) de
+  // Kapso), el click dispara fetch+blob para poder abrirlo inline sin forzar "Guardar
+  // como" (ver abrirDocumento en el componente principal). Si es una `data:` URL vieja,
+  // se linkea directo, sin el atributo download (si no, el navegador fuerza descarga
+  // igual para cualquier data: URL, sin importar el tipo de archivo).
+  if (enNuestroStorage || esLinkExternoDeKapso) {
     return (
       <button type="button" className="s24-adjunto-doc" onClick={() => onAbrirDocumento(mensajeId)}>
         📄 <span>{adjunto.nombre || 'Ver documento'}</span>
