@@ -50,8 +50,10 @@
   overflow: hidden;
 }
 
+/* Por default sigue al SO (prefers-color-scheme); el switch del header fuerza
+   [data-theme] explícito, que le gana a la preferencia del sistema. */
 @media (prefers-color-scheme: dark) {
-  .s24-inbox {
+  .s24-inbox:not([data-theme="light"]) {
     --bg: #171b1a;
     --surface: #212524;
     --surface-soft: #262a29;
@@ -82,6 +84,36 @@
     --shadow-md: 0 10px 26px rgba(0, 0, 0, 0.4);
   }
 }
+.s24-inbox[data-theme="dark"] {
+  --bg: #171b1a;
+  --surface: #212524;
+  --surface-soft: #262a29;
+  --border: #34393a;
+  --text: #eef1ef;
+  --text-dim: #b3bab9;
+  --text-faint: #7c8483;
+  --navy: #101c33;
+  --navy-2: #16233d;
+  --navy-ink: #f3efe7;
+  --navy-ink-dim: #93a2c0;
+  --accent: #2bc0b4;
+  --accent-2: #22a99e;
+  --accent-dim: #55d2c7;
+  --accent-tint: #17332f;
+  --accent-ink: #062521;
+  --bubble-in: #262a29;
+  --bubble-out-1: #1f9d92;
+  --bubble-out-2: #146d66;
+  --good: #56c286;
+  --good-tint: #1f3a2b;
+  --warn: #e2b158;
+  --warn-tint: #3c2f18;
+  --critical: #e37b6e;
+  --critical-tint: #402420;
+  --read-tick: #4fc3f7;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 10px 26px rgba(0, 0, 0, 0.4);
+}
 
 .s24-inbox * { box-sizing: border-box; }
 .s24-inbox button { font: inherit; color: inherit; }
@@ -102,11 +134,15 @@
   --numero-accent: #c1345a; --numero-accent-dim: #9c2947; --numero-accent-tint: #fbe4ea;
 }
 @media (prefers-color-scheme: dark) {
-  .s24-inbox [data-numero="dealers"] { --numero-accent-tint: #3a2c14; }
-  .s24-inbox [data-numero="abonados"] { --numero-accent-tint: #17332f; }
-  .s24-inbox [data-numero="fullapp"] { --numero-accent-tint: #26224a; }
-  .s24-inbox [data-numero="instagram"] { --numero-accent-tint: #3a1c26; }
+  .s24-inbox:not([data-theme="light"]) [data-numero="dealers"] { --numero-accent-tint: #3a2c14; }
+  .s24-inbox:not([data-theme="light"]) [data-numero="abonados"] { --numero-accent-tint: #17332f; }
+  .s24-inbox:not([data-theme="light"]) [data-numero="fullapp"] { --numero-accent-tint: #26224a; }
+  .s24-inbox:not([data-theme="light"]) [data-numero="instagram"] { --numero-accent-tint: #3a1c26; }
 }
+.s24-inbox[data-theme="dark"] [data-numero="dealers"] { --numero-accent-tint: #3a2c14; }
+.s24-inbox[data-theme="dark"] [data-numero="abonados"] { --numero-accent-tint: #17332f; }
+.s24-inbox[data-theme="dark"] [data-numero="fullapp"] { --numero-accent-tint: #26224a; }
+.s24-inbox[data-theme="dark"] [data-numero="instagram"] { --numero-accent-tint: #3a1c26; }
 
 /* ── Barra superior ───────────────────────────────────────────────────────── */
 .s24-app-top {
@@ -137,6 +173,50 @@
   color: var(--navy-ink); border-color: color-mix(in srgb, var(--navy-ink) 45%, transparent);
   background: color-mix(in srgb, var(--navy-ink) 8%, transparent);
 }
+
+/* ── Switch de tema claro/oscuro del header ──────────────────────────────────
+   Adaptado de un componente de Uiverse.io (by rishichawda) — mismo criterio que la
+   tele del placeholder de Instagram: ids con prefijo s24-tt- para no colisionar, y
+   tamaño escalado por font-size ya que el diseño original está hecho en em. Los
+   `filter="url(#...)"` del original (drop-shadows) no venían con su <defs> correspondiente
+   en el HTML que se pudo rescatar, así que se sacaron — sin ellos el switch se ve
+   igual solo que sin la sombra sutil del pomo. */
+#s24-tt {
+  font-size: 8px;
+  position: relative;
+  display: inline-flex;
+  width: 7em;
+  cursor: pointer;
+  flex: none;
+}
+#s24-tt svg { width: 100%; height: auto; display: block; }
+#s24-tt-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+#s24-tt-input:focus-visible + svg { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 999px; }
+#s24-tt-container,
+#s24-tt-stars,
+#s24-tt-button,
+#s24-tt-sun,
+#s24-tt-moon,
+#s24-tt-cloud {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 0.25s;
+}
+#s24-tt-input:checked + svg #s24-tt-container { fill: #2b4360; }
+#s24-tt-input:checked + svg #s24-tt-button { transform: translate(28px, 2.333px); }
+#s24-tt-sun { opacity: 1; }
+#s24-tt-input:checked + svg #s24-tt-sun { opacity: 0; }
+#s24-tt-moon { opacity: 0; }
+#s24-tt-input:checked + svg #s24-tt-moon { opacity: 1; }
+#s24-tt-cloud { opacity: 1; }
+#s24-tt-input:checked + svg #s24-tt-cloud { opacity: 0; }
+#s24-tt-stars { opacity: 0; }
+#s24-tt-input:checked + svg #s24-tt-stars { opacity: 1; }
 
 .s24-channel-status { display: flex; gap: 14px; flex-wrap: wrap; }
 
