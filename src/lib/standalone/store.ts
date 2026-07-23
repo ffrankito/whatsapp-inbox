@@ -33,6 +33,7 @@ export type StandaloneConversacion = {
   mensajes: StandaloneMensaje[]
   estado: EstadoConversacion
   asignadaA?: Agente
+  ultimoAgente?: Agente
   vistoHastaMensajeId?: string
 }
 
@@ -75,6 +76,7 @@ function aConversacionBase(row: typeof conversacionesStandalone.$inferSelect): O
     fullName: row.fullName,
     estado: row.estado as EstadoConversacion,
     asignadaA: aAgente(row.asignadaAId, row.asignadaANombre),
+    ultimoAgente: aAgente(row.ultimoAgenteId, row.ultimoAgenteNombre),
     vistoHastaMensajeId: row.vistoHastaMensajeId ?? undefined,
   }
 }
@@ -242,7 +244,14 @@ export function puedeEscribir(conv: StandaloneConversacion, agenteId: string): b
 export async function asignarConversacion(id: string, agente: Agente): Promise<ResultadoAsignacion> {
   const [actualizado] = await db()
     .update(conversacionesStandalone)
-    .set({ estado: 'asignada', asignadaAId: agente.id, asignadaANombre: agente.nombre, actualizadoEn: new Date() })
+    .set({
+      estado: 'asignada',
+      asignadaAId: agente.id,
+      asignadaANombre: agente.nombre,
+      ultimoAgenteId: agente.id,
+      ultimoAgenteNombre: agente.nombre,
+      actualizadoEn: new Date(),
+    })
     .where(
       and(
         eq(conversacionesStandalone.id, id),
@@ -288,7 +297,13 @@ export type ResultadoTraspaso = { ok: true } | { ok: false; motivo: 'no_existe' 
 export async function traspasarConversacion(id: string, deAgenteId: string, destino: Agente): Promise<ResultadoTraspaso> {
   const [actualizado] = await db()
     .update(conversacionesStandalone)
-    .set({ asignadaAId: destino.id, asignadaANombre: destino.nombre, actualizadoEn: new Date() })
+    .set({
+      asignadaAId: destino.id,
+      asignadaANombre: destino.nombre,
+      ultimoAgenteId: destino.id,
+      ultimoAgenteNombre: destino.nombre,
+      actualizadoEn: new Date(),
+    })
     .where(and(eq(conversacionesStandalone.id, id), eq(conversacionesStandalone.estado, 'asignada'), eq(conversacionesStandalone.asignadaAId, deAgenteId)))
     .returning()
   if (actualizado) return { ok: true }

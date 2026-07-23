@@ -39,6 +39,7 @@ type Conversacion = {
   unreadCount?: number
   estado?: EstadoConversacion
   asignadaA?: Agente
+  ultimoAgente?: Agente
   vistoHastaMensajeId?: string
 }
 
@@ -139,6 +140,8 @@ function conversacionesIguales(a: Conversacion[], b: Conversacion[]): boolean {
       c.estado === d.estado &&
       c.asignadaA?.id === d.asignadaA?.id &&
       c.asignadaA?.nombre === d.asignadaA?.nombre &&
+      c.ultimoAgente?.id === d.ultimoAgente?.id &&
+      c.ultimoAgente?.nombre === d.ultimoAgente?.nombre &&
       c.vistoHastaMensajeId === d.vistoHastaMensajeId
     )
   })
@@ -561,6 +564,18 @@ export default function InboxPage() {
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [seleccionadaId, mensajes])
+
+  // Las imágenes/videos de los adjuntos terminan de cargar DESPUÉS del scroll de arriba
+  // (llegan de a poco, ya con el mensaje en el DOM) — cada una que carga empuja el resto
+  // del hilo hacia abajo, así que sin esto el scroll queda corto del final "de verdad"
+  // una vez que todo terminó de renderizarse. Solo reengancha si ya estaba cerca del
+  // final, para no arrastrar al agente si scrolleó para arriba a leer historial viejo.
+  const reengancharAlFinalSiCorresponde = useCallback(() => {
+    const el = bubblesRef.current
+    if (!el) return
+    const cercaDelFinal = el.scrollHeight - el.scrollTop - el.clientHeight < 200
+    if (cercaDelFinal) el.scrollTop = el.scrollHeight
+  }, [])
 
   // ── Tiempo real: una sola conexión SSE, reacciona a eventos del número activo ─
   useEffect(() => {
@@ -1162,6 +1177,11 @@ export default function InboxPage() {
                     {noLeida(c) && <span className="s24-chip unread">Sin leer</span>}
                     {c.estado === 'asignada' && <span className="s24-chip lock">🔒 {c.asignadaA?.nombre}</span>}
                     {c.estado === 'cerrada' && <span className="s24-chip closed">Cerrada</span>}
+                    {c.estado !== 'asignada' && c.ultimoAgente && (
+                      <span className="s24-chip last-agent" title="Último agente que la atendió">
+                        Último: {c.ultimoAgente.nombre}
+                      </span>
+                    )}
                   </div>
                 </button>
               ))}
@@ -1274,7 +1294,16 @@ export default function InboxPage() {
                         className={`s24-bubble ${m.direction === 'inbound' ? 'in' : 'out'}`}
                         data-media={String(!!esMediaVisual)}
                       >
-                        {m.adjunto && <Adjunto adjunto={m.adjunto} onAmpliar={setImagenAmpliada} mensajeId={m.id} conversacionId={seleccionada.id} onAbrirDocumento={abrirDocumento} />}
+                        {m.adjunto && (
+                          <Adjunto
+                            adjunto={m.adjunto}
+                            onAmpliar={setImagenAmpliada}
+                            mensajeId={m.id}
+                            conversacionId={seleccionada.id}
+                            onAbrirDocumento={abrirDocumento}
+                            onCargado={reengancharAlFinalSiCorresponde}
+                          />
+                        )}
                         {esMediaVisual && !caption && <span className="t sobre-media">{horaTick}</span>}
                         {caption && <span className="s24-bubble-text">{caption}</span>}
                         {!(esMediaVisual && !caption) && <span className="t">{horaTick}</span>}
@@ -1943,12 +1972,14 @@ function Adjunto({
   mensajeId,
   conversacionId,
   onAbrirDocumento,
+  onCargado,
 }: {
   adjunto: Adjunto
   onAmpliar: (url: string) => void
   mensajeId: string
   conversacionId: string
   onAbrirDocumento: (mensajeId: string) => void
+  onCargado?: () => void
 }) {
   const enNuestroStorage = adjunto.url.startsWith(PREFIJO_STORAGE)
   const esLinkExternoDeKapso = adjunto.url.startsWith('http://') || adjunto.url.startsWith('https://')
@@ -1968,14 +1999,15 @@ function Adjunto({
         src={src}
         alt={adjunto.nombre || 'Imagen'}
         onClick={() => onAmpliar(src)}
+        onLoad={onCargado}
       />
     )
   }
   if (adjunto.tipo === 'sticker') {
-    return <img className="s24-adjunto-sticker" src={src} alt="Sticker" onClick={() => onAmpliar(src)} />
+    return <img className="s24-adjunto-sticker" src={src} alt="Sticker" onClick={() => onAmpliar(src)} onLoad={onCargado} />
   }
   if (adjunto.tipo === 'video') {
-    return <video className="s24-adjunto-img" src={src} controls />
+    return <video className="s24-adjunto-img" src={src} controls onLoadedMetadata={onCargado} />
   }
   if (adjunto.tipo === 'audio') {
     return <audio className="s24-adjunto-audio" src={src} controls />

@@ -13,6 +13,11 @@ export const conversacionesStandalone = pgTable('conversaciones_standalone', {
   estado: text('estado').notNull().default('sin_asignar'),
   asignadaAId: text('asignada_a_id'),
   asignadaANombre: text('asignada_a_nombre'),
+  // Último agente que tomó o recibió esta conversación (asignar/traspasar) — a diferencia
+  // de asignadaA*, esto NO se borra al liberar/cerrar, para poder mostrar quién la atendió
+  // por última vez aunque ya esté libre.
+  ultimoAgenteId: text('ultimo_agente_id'),
+  ultimoAgenteNombre: text('ultimo_agente_nombre'),
   // "Leído" es una propiedad de la conversación, no de quién la mira — cualquier agente
   // que la abra la marca como vista para todos (ver docs/ARCHITECTURE.md §26, antes esto
   // vivía solo en localStorage y no se sincronizaba entre navegadores/agentes).
