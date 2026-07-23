@@ -274,6 +274,7 @@ export default function InboxPage() {
   const [cargandoAgente, setCargandoAgente] = useState(true)
   const [googleScriptListo, setGoogleScriptListo] = useState(false)
   const googleBtnRef = useRef<HTMLDivElement>(null)
+  const bubblesRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!imagenAmpliada) return
@@ -551,6 +552,15 @@ export default function InboxPage() {
     const interval = setInterval(() => cargarMensajes(seleccionadaId), POLL_RESPALDO_MS)
     return () => clearInterval(interval)
   }, [seleccionadaId, cargarMensajes, headersConAgente, marcarVista])
+
+  // Al abrir una conversación (o llegar un mensaje nuevo) hay que quedar parado en el
+  // último mensaje, no arriba de todo — el scroll nace en el tope del contenedor si no
+  // se fuerza esto explícitamente.
+  useEffect(() => {
+    const el = bubblesRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }, [seleccionadaId, mensajes])
 
   // ── Tiempo real: una sola conexión SSE, reacciona a eventos del número activo ─
   useEffect(() => {
@@ -1245,7 +1255,7 @@ export default function InboxPage() {
                 </div>
               )}
 
-              <div className="s24-bubbles">
+              <div className="s24-bubbles" ref={bubblesRef}>
                 {mensajes.map((m) => {
                   const esMediaVisual = m.adjunto?.tipo === 'image' || m.adjunto?.tipo === 'video' || m.adjunto?.tipo === 'sticker'
                   // Si el adjunto no tenía caption, el body es solo el placeholder "[Imagen]"/etc
