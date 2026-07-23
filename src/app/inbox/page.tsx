@@ -583,16 +583,24 @@ export default function InboxPage() {
   // Esperar el próximo frame (y uno más, para que asiente) garantiza que ya hay layout.
   useEffect(() => {
     const el = bubblesRef.current
+    console.log('[S24-DEBUG] efecto scroll disparado', { seleccionadaId, mensajesLen: mensajes.length, elExiste: !!el })
     if (!el) return
     let id2 = 0
     const id1 = requestAnimationFrame(() => {
       id2 = requestAnimationFrame(() => {
+        console.log('[S24-DEBUG] aplicando scroll', { scrollTopAntes: el.scrollTop, scrollHeight: el.scrollHeight })
         el.scrollTop = el.scrollHeight
+        console.log('[S24-DEBUG] scroll aplicado', { scrollTopDespues: el.scrollTop })
       })
     })
+    const timeoutId = setTimeout(() => {
+      console.log('[S24-DEBUG] chequeo tardío (500ms después)', { scrollTop: el.scrollTop, scrollHeight: el.scrollHeight })
+    }, 500)
     return () => {
+      console.log('[S24-DEBUG] efecto scroll: cleanup (cancela rAF pendientes)')
       cancelAnimationFrame(id1)
       cancelAnimationFrame(id2)
+      clearTimeout(timeoutId)
     }
   }, [seleccionadaId, mensajes])
 
