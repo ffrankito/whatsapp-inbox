@@ -20,7 +20,7 @@ type Body = {
 }
 
 // El agente responde acá -> pasa por GHL (POST /conversations/messages), que a su vez
-// dispara la Delivery URL del provider (/api/ghl/outbound) y ahí recién se manda por
+// dispara la Delivery URL del provider (/api/crm/outbound) y ahí recién se manda por
 // Kapso. Este endpoint nunca le habla a Kapso directamente (ver ARCHITECTURE.md §4.2) —
 // excepto en STANDALONE_MODE (Fase 2), donde todavía no hay GHL de por medio y este es
 // el único lugar que manda de verdad.

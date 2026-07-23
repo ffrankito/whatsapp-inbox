@@ -16,7 +16,9 @@ type OutboundPayload = {
 }
 
 // Delivery URL de cada Conversation Provider — configurada en GHL como
-// /api/ghl/outbound?numero=dealers|abonados|fullapp (ver ARCHITECTURE.md §9.2).
+// /api/crm/outbound?numero=dealers|abonados|fullapp (ver ARCHITECTURE.md §9.2). Se llama
+// "crm" y no "ghl" en la ruta porque GHL rechaza cualquier Redirect/Delivery URL que
+// contenga la palabra "ghl" (ver ARCHITECTURE.md).
 // Único lugar del proyecto donde efectivamente se manda un mensaje a Kapso/Meta,
 // sin importar si el agente respondió desde nuestro inbox o desde el nativo de GHL.
 export async function POST(request: NextRequest) {

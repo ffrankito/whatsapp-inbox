@@ -344,7 +344,7 @@ export default function InboxPage() {
       const encryptedPayload = event.data?.payload
       if (!encryptedPayload) return
 
-      fetch('/api/ghl/session', {
+      fetch('/api/crm/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-s24-inbox': '1' },
         body: JSON.stringify({ encryptedPayload }),
