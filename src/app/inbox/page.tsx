@@ -539,10 +539,15 @@ export default function InboxPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTexto('')
     setArchivoAdj(null)
-    if (!seleccionadaId) {
-      setMensajes([])
-      return
-    }
+    // Limpiar siempre (no solo cuando no hay conversación elegida) — si no, al cambiar
+    // de chat A a chat B los mensajes de A quedan visibles hasta que termine de cargar
+    // B (fetch async), y por un instante se renderiza el hilo VIEJO con la identidad
+    // (conversacionId) del chat NUEVO ya seleccionada — eso hace, por ejemplo, que el
+    // proxy de adjuntos pida un mensaje real pero con el conversacionId de otro chat y
+    // tire 404. También hacía que el scroll-al-final calculara sobre contenido que no
+    // era el del chat recién abierto.
+    setMensajes([])
+    if (!seleccionadaId) return
     cargarMensajes(seleccionadaId)
     marcarVista(seleccionadaId, conversacionesRef.current.find((c) => c.id === seleccionadaId)?.lastMessageId)
     // Aviso de cortesía al cliente (tilde azul) al abrir la conversación — separado del
