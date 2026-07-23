@@ -558,11 +558,24 @@ export default function InboxPage() {
 
   // Al abrir una conversación (o llegar un mensaje nuevo) hay que quedar parado en el
   // último mensaje, no arriba de todo — el scroll nace en el tope del contenedor si no
-  // se fuerza esto explícitamente.
+  // se fuerza esto explícitamente. Se hace en dos rAF (no un setTimeout arbitrario):
+  // en mobile, .s24-bubbles vive dentro de .s24-thread, que pasa de display:none a
+  // flex en el mismo render en que se abre el chat — hasta que el navegador no pinta
+  // ese cambio, el contenedor no tiene layout real y scrollHeight puede quedar corto.
+  // Esperar el próximo frame (y uno más, para que asiente) garantiza que ya hay layout.
   useEffect(() => {
     const el = bubblesRef.current
     if (!el) return
-    el.scrollTop = el.scrollHeight
+    let id2 = 0
+    const id1 = requestAnimationFrame(() => {
+      id2 = requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight
+      })
+    })
+    return () => {
+      cancelAnimationFrame(id1)
+      cancelAnimationFrame(id2)
+    }
   }, [seleccionadaId, mensajes])
 
   // Las imágenes/videos de los adjuntos terminan de cargar DESPUÉS del scroll de arriba
@@ -1177,12 +1190,10 @@ export default function InboxPage() {
                     {noLeida(c) && <span className="s24-chip unread">Sin leer</span>}
                     {c.estado === 'asignada' && <span className="s24-chip lock">🔒 {c.asignadaA?.nombre}</span>}
                     {c.estado === 'cerrada' && <span className="s24-chip closed">Cerrada</span>}
-                    {c.estado !== 'asignada' && c.ultimoAgente && (
-                      <span className="s24-chip last-agent" title="Último agente que la atendió">
-                        Último: {c.ultimoAgente.nombre}
-                      </span>
-                    )}
                   </div>
+                  {c.estado !== 'asignada' && c.ultimoAgente && (
+                    <div className="s24-conv-last-agent">👤 Atendida por <b>{c.ultimoAgente.nombre}</b></div>
+                  )}
                 </button>
               ))}
             </>

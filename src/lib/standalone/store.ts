@@ -241,6 +241,11 @@ export function puedeEscribir(conv: StandaloneConversacion, agenteId: string): b
   return conv.asignadaA?.id === agenteId
 }
 
+// actualizadoEn NO se toca acá (ni en liberar/cerrar/traspasar más abajo) — la lista de
+// conversaciones ordena por ese campo, y una acción administrativa (tomar/liberar/cerrar/
+// traspasar) no es "actividad nueva" de la conversación en sí; si se tocara, la
+// conversación saltaría al principio de la lista sin que haya llegado ningún mensaje,
+// que es justo el comportamiento que se reportó como bug. Solo agregarMensaje lo actualiza.
 export async function asignarConversacion(id: string, agente: Agente): Promise<ResultadoAsignacion> {
   const [actualizado] = await db()
     .update(conversacionesStandalone)
@@ -250,7 +255,6 @@ export async function asignarConversacion(id: string, agente: Agente): Promise<R
       asignadaANombre: agente.nombre,
       ultimoAgenteId: agente.id,
       ultimoAgenteNombre: agente.nombre,
-      actualizadoEn: new Date(),
     })
     .where(
       and(
@@ -274,7 +278,7 @@ export async function asignarConversacion(id: string, agente: Agente): Promise<R
 export async function liberarConversacion(id: string, agenteId: string): Promise<boolean> {
   const [actualizado] = await db()
     .update(conversacionesStandalone)
-    .set({ estado: 'sin_asignar', asignadaAId: null, asignadaANombre: null, actualizadoEn: new Date() })
+    .set({ estado: 'sin_asignar', asignadaAId: null, asignadaANombre: null })
     .where(and(eq(conversacionesStandalone.id, id), eq(conversacionesStandalone.estado, 'asignada'), eq(conversacionesStandalone.asignadaAId, agenteId)))
     .returning()
   return !!actualizado
@@ -283,7 +287,7 @@ export async function liberarConversacion(id: string, agenteId: string): Promise
 export async function cerrarConversacion(id: string, agenteId: string): Promise<boolean> {
   const [actualizado] = await db()
     .update(conversacionesStandalone)
-    .set({ estado: 'cerrada', actualizadoEn: new Date() })
+    .set({ estado: 'cerrada' })
     .where(and(eq(conversacionesStandalone.id, id), eq(conversacionesStandalone.estado, 'asignada'), eq(conversacionesStandalone.asignadaAId, agenteId)))
     .returning()
   return !!actualizado
@@ -302,7 +306,6 @@ export async function traspasarConversacion(id: string, deAgenteId: string, dest
       asignadaANombre: destino.nombre,
       ultimoAgenteId: destino.id,
       ultimoAgenteNombre: destino.nombre,
-      actualizadoEn: new Date(),
     })
     .where(and(eq(conversacionesStandalone.id, id), eq(conversacionesStandalone.estado, 'asignada'), eq(conversacionesStandalone.asignadaAId, deAgenteId)))
     .returning()
