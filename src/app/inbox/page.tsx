@@ -291,6 +291,12 @@ export default function InboxPage() {
   const [googleScriptListo, setGoogleScriptListo] = useState(false)
   const googleBtnRef = useRef<HTMLDivElement>(null)
   const bubblesRef = useRef<HTMLDivElement>(null)
+  // Si el agente está (o no) pegado al final del hilo — se actualiza en cada evento de
+  // scroll real, NO se recalcula en el momento de reenganchar (ver
+  // reengancharAlFinalSiCorresponde más abajo: una sola foto puede empujar el layout
+  // más de 300px de una, y si se recalculara ahí mismo un salto así se confundía con
+  // "el agente scrolleó para arriba a leer historial" y dejaba el hilo pegado en esa foto).
+  const estabaAlFinalRef = useRef(true)
 
   useEffect(() => {
     if (!imagenAmpliada) return
@@ -574,6 +580,20 @@ export default function InboxPage() {
     return () => clearInterval(interval)
   }, [seleccionadaId, cargarMensajes, headersConAgente, marcarVista])
 
+  // Mantiene estabaAlFinalRef al día con cada scroll REAL del contenedor (incluye los
+  // programáticos, que también disparan el evento) — así reengancharAlFinalSiCorresponde
+  // no tiene que recalcular la distancia al final en el momento de cada carga de imagen,
+  // que es justo lo que fallaba antes (ver ese comentario más abajo).
+  useEffect(() => {
+    const el = bubblesRef.current
+    if (!el) return
+    const onScroll = () => {
+      estabaAlFinalRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
   // Al abrir una conversación (o llegar un mensaje nuevo) hay que quedar parado en el
   // último mensaje, no arriba de todo — el scroll nace en el tope del contenedor si no
   // se fuerza esto explícitamente. Se hace en dos rAF (no un setTimeout arbitrario):
@@ -583,37 +603,33 @@ export default function InboxPage() {
   // Esperar el próximo frame (y uno más, para que asiente) garantiza que ya hay layout.
   useEffect(() => {
     const el = bubblesRef.current
-    console.log('[S24-DEBUG] efecto scroll disparado', { seleccionadaId, mensajesLen: mensajes.length, elExiste: !!el })
     if (!el) return
+    estabaAlFinalRef.current = true
     let id2 = 0
     const id1 = requestAnimationFrame(() => {
       id2 = requestAnimationFrame(() => {
-        console.log('[S24-DEBUG] aplicando scroll', { scrollTopAntes: el.scrollTop, scrollHeight: el.scrollHeight })
         el.scrollTop = el.scrollHeight
-        console.log('[S24-DEBUG] scroll aplicado', { scrollTopDespues: el.scrollTop })
       })
     })
-    const timeoutId = setTimeout(() => {
-      console.log('[S24-DEBUG] chequeo tardío (500ms después)', { scrollTop: el.scrollTop, scrollHeight: el.scrollHeight })
-    }, 500)
     return () => {
-      console.log('[S24-DEBUG] efecto scroll: cleanup (cancela rAF pendientes)')
       cancelAnimationFrame(id1)
       cancelAnimationFrame(id2)
-      clearTimeout(timeoutId)
     }
   }, [seleccionadaId, mensajes])
 
   // Las imágenes/videos de los adjuntos terminan de cargar DESPUÉS del scroll de arriba
   // (llegan de a poco, ya con el mensaje en el DOM) — cada una que carga empuja el resto
   // del hilo hacia abajo, así que sin esto el scroll queda corto del final "de verdad"
-  // una vez que todo terminó de renderizarse. Solo reengancha si ya estaba cerca del
-  // final, para no arrastrar al agente si scrolleó para arriba a leer historial viejo.
+  // una vez que todo terminó de renderizarse. Reengancha solo si el agente estaba pegado
+  // al final ANTES de que esta imagen cargara (estabaAlFinalRef, actualizado por el
+  // listener de scroll de arriba) — no si "sigue cerca" después de cargar, porque una
+  // sola foto puede empujar el layout 300px+ de un salto, mucho más que cualquier umbral
+  // razonable, y eso hacía que se descartara el reenganche pensando que el agente había
+  // scrolleado para arriba a propósito (bug real: el hilo quedaba parado justo en una foto).
   const reengancharAlFinalSiCorresponde = useCallback(() => {
     const el = bubblesRef.current
-    if (!el) return
-    const cercaDelFinal = el.scrollHeight - el.scrollTop - el.clientHeight < 200
-    if (cercaDelFinal) el.scrollTop = el.scrollHeight
+    if (!el || !estabaAlFinalRef.current) return
+    el.scrollTop = el.scrollHeight
   }, [])
 
   // ── Tiempo real: una sola conexión SSE, reacciona a eventos del número activo ─

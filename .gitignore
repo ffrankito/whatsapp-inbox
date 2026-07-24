@@ -40,3 +40,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Kapso agent-skills (instalado local con `npx skills add gokapso/agent-skills`,
+# cada quien lo instala por su cuenta si lo necesita)
+/.agents/
+/.claude/
+skills-lock.json
+
+# graphify (descartado, ver feedback en memoria)
+/graphify-out/
