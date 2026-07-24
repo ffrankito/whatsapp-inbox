@@ -440,12 +440,22 @@ export default function InboxPage() {
     return !!c.lastMessageId && c.vistoHastaMensajeId !== c.lastMessageId
   }
 
+  // cargarConversaciones se dispara varias veces en paralelo por la misma acción (el
+  // poll de respaldo, el eco del propio evento SSE que uno mismo genera al marcar
+  // visto, y el .then() de marcarVista) — sin nada más, dos pedidos pueden resolver
+  // fuera de orden y el más viejo pisa al más nuevo, viéndose como que la lista
+  // "salta". Con fotos se nota más porque los GET de /api/adjunto/proxy compiten por
+  // conexiones del navegador y retrasan estos pedidos de forma pareja. Este contador
+  // descarta cualquier respuesta que no sea la del último pedido que se inició.
+  const cargarConversacionesSeq = useRef(0)
   const cargarConversaciones = useCallback(async () => {
     const numeroPedido = numeroActivoRef.current
+    const miSeq = ++cargarConversacionesSeq.current
     try {
       const res = await fetch(`/api/conversaciones?numero=${numeroPedido}`)
       if (!res.ok) return
       const data = await res.json()
+      if (miSeq !== cargarConversacionesSeq.current) return
       const nuevas: Conversacion[] = data.conversations ?? []
       // Evita re-renderizar todo el árbol (lista + hilo) cuando el poll trae exactamente
       // lo mismo que ya teníamos para ese número — que es la mayoría de las veces.
@@ -1241,10 +1251,10 @@ export default function InboxPage() {
                     {noLeida(c) && <span className="s24-chip unread">Sin leer</span>}
                     {c.estado === 'asignada' && <span className="s24-chip lock">🔒 {c.asignadaA?.nombre}</span>}
                     {c.estado === 'cerrada' && <span className="s24-chip closed">Cerrada</span>}
+                    {c.estado !== 'asignada' && c.ultimoAgente && (
+                      <span className="s24-chip agent">👤 {c.ultimoAgente.nombre}</span>
+                    )}
                   </div>
-                  {c.estado !== 'asignada' && c.ultimoAgente && (
-                    <div className="s24-conv-last-agent">👤 Atendida por <b>{c.ultimoAgente.nombre}</b></div>
-                  )}
                 </button>
               ))}
             </>

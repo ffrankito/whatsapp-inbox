@@ -86,7 +86,11 @@ export async function listarConversaciones(numero: NumeroId): Promise<Standalone
     .select()
     .from(conversacionesStandalone)
     .where(eq(conversacionesStandalone.numero, numero))
-    .orderBy(desc(conversacionesStandalone.actualizadoEn))
+    // Desempate por id: dos mensajes casi simultáneos pueden dejar el mismo
+    // actualizadoEn exacto, y sin un segundo criterio Postgres no garantiza el mismo
+    // orden entre una consulta y la siguiente para esas filas empatadas — eso hacía
+    // que la lista pareciera "saltar" en el frontend aunque nada real hubiera cambiado.
+    .orderBy(desc(conversacionesStandalone.actualizadoEn), conversacionesStandalone.id)
 
   return Promise.all(
     filas.map(async (fila) => {

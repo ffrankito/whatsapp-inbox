@@ -709,11 +709,6 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .s24-conv-item .chips { display: flex; gap: 6px; margin-top: 7px; margin-left: 37px; flex-wrap: wrap; }
-.s24-conv-last-agent {
-  font-size: 11.5px; color: var(--text-faint); margin-top: 6px; margin-left: 37px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.s24-conv-last-agent b { color: var(--text-dim); font-weight: 700; }
 .s24-chip {
   font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
   background: var(--warn-tint); color: var(--warn); white-space: nowrap;
@@ -983,6 +978,7 @@
 /* ── Chips de estado (asignada / cerrada) ────────────────────────────────── */
 .s24-chip.lock { background: var(--accent-tint); color: var(--accent-2); }
 .s24-chip.closed { background: var(--surface-soft); color: var(--text-faint); border: 1px solid var(--border); }
+.s24-chip.agent { background: var(--surface-soft); color: var(--text-faint); font-weight: 600; }
 
 .s24-lock-banner {
   padding: 10px 20px; font-size: 12.5px; color: var(--text-dim);
