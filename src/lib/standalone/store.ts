@@ -34,6 +34,7 @@ export type StandaloneConversacion = {
   estado: EstadoConversacion
   asignadaA?: Agente
   ultimoAgente?: Agente
+  ultimoAgenteEn?: string
   vistoHastaMensajeId?: string
 }
 
@@ -77,6 +78,7 @@ function aConversacionBase(row: typeof conversacionesStandalone.$inferSelect): O
     estado: row.estado as EstadoConversacion,
     asignadaA: aAgente(row.asignadaAId, row.asignadaANombre),
     ultimoAgente: aAgente(row.ultimoAgenteId, row.ultimoAgenteNombre),
+    ultimoAgenteEn: row.ultimoAgenteEn?.toISOString(),
     vistoHastaMensajeId: row.vistoHastaMensajeId ?? undefined,
   }
 }
@@ -259,6 +261,7 @@ export async function asignarConversacion(id: string, agente: Agente): Promise<R
       asignadaANombre: agente.nombre,
       ultimoAgenteId: agente.id,
       ultimoAgenteNombre: agente.nombre,
+      ultimoAgenteEn: new Date(),
     })
     .where(
       and(
@@ -310,6 +313,7 @@ export async function traspasarConversacion(id: string, deAgenteId: string, dest
       asignadaANombre: destino.nombre,
       ultimoAgenteId: destino.id,
       ultimoAgenteNombre: destino.nombre,
+      ultimoAgenteEn: new Date(),
     })
     .where(and(eq(conversacionesStandalone.id, id), eq(conversacionesStandalone.estado, 'asignada'), eq(conversacionesStandalone.asignadaAId, deAgenteId)))
     .returning()

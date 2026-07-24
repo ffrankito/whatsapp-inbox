@@ -40,6 +40,7 @@ type Conversacion = {
   estado?: EstadoConversacion
   asignadaA?: Agente
   ultimoAgente?: Agente
+  ultimoAgenteEn?: string
   vistoHastaMensajeId?: string
 }
 
@@ -142,9 +143,24 @@ function conversacionesIguales(a: Conversacion[], b: Conversacion[]): boolean {
       c.asignadaA?.nombre === d.asignadaA?.nombre &&
       c.ultimoAgente?.id === d.ultimoAgente?.id &&
       c.ultimoAgente?.nombre === d.ultimoAgente?.nombre &&
+      c.ultimoAgenteEn === d.ultimoAgenteEn &&
       c.vistoHastaMensajeId === d.vistoHastaMensajeId
     )
   })
+}
+
+// "ahora" viene de afuera (el estado que tiquea cada un minuto, ver más abajo) en vez
+// de leer Date.now() acá adentro — llamarlo directo en el cuerpo del render es lo
+// impuro que el compilador de React marca (mismo criterio que ventanaAbierta).
+function tiempoRelativo(iso: string, ahora: number): string {
+  const minutos = Math.floor((ahora - new Date(iso).getTime()) / 60_000)
+  if (minutos < 1) return 'recién'
+  if (minutos < 60) return `hace ${minutos} min`
+  const horas = Math.floor(minutos / 60)
+  if (horas < 24) return `hace ${horas} h`
+  const dias = Math.floor(horas / 24)
+  if (dias < 7) return `hace ${dias} d`
+  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
 }
 
 function mensajesIguales(a: Mensaje[], b: Mensaje[]): boolean {
@@ -440,22 +456,31 @@ export default function InboxPage() {
     return !!c.lastMessageId && c.vistoHastaMensajeId !== c.lastMessageId
   }
 
+  // Para el badge de "sin leer" del selector de números — necesita la lista de TODOS
+  // los números, no solo del activo (ver el efecto de polling de todos los números).
+  function noLeidosDe(numero: NumeroId): number {
+    return (conversacionesPorNumero[numero] ?? []).filter(noLeida).length
+  }
+
   // cargarConversaciones se dispara varias veces en paralelo por la misma acción (el
   // poll de respaldo, el eco del propio evento SSE que uno mismo genera al marcar
   // visto, y el .then() de marcarVista) — sin nada más, dos pedidos pueden resolver
   // fuera de orden y el más viejo pisa al más nuevo, viéndose como que la lista
   // "salta". Con fotos se nota más porque los GET de /api/adjunto/proxy compiten por
-  // conexiones del navegador y retrasan estos pedidos de forma pareja. Este contador
-  // descarta cualquier respuesta que no sea la del último pedido que se inició.
-  const cargarConversacionesSeq = useRef(0)
-  const cargarConversaciones = useCallback(async () => {
-    const numeroPedido = numeroActivoRef.current
-    const miSeq = ++cargarConversacionesSeq.current
+  // conexiones del navegador y retrasan estos pedidos de forma pareja. La secuencia es
+  // POR NÚMERO (no global) — ahora se refrescan todos los números en paralelo para las
+  // notificaciones de "sin leer" del selector (ver s24-num-badge), y un pedido de un
+  // número no puede invalidar el de otro.
+  const cargarConversacionesSeqRef = useRef<Partial<Record<NumeroId, number>>>({})
+  const cargarConversaciones = useCallback(async (numero?: NumeroId) => {
+    const numeroPedido = numero ?? numeroActivoRef.current
+    const miSeq = (cargarConversacionesSeqRef.current[numeroPedido] ?? 0) + 1
+    cargarConversacionesSeqRef.current[numeroPedido] = miSeq
     try {
       const res = await fetch(`/api/conversaciones?numero=${numeroPedido}`)
       if (!res.ok) return
       const data = await res.json()
-      if (miSeq !== cargarConversacionesSeq.current) return
+      if (cargarConversacionesSeqRef.current[numeroPedido] !== miSeq) return
       const nuevas: Conversacion[] = data.conversations ?? []
       // Evita re-renderizar todo el árbol (lista + hilo) cuando el poll trae exactamente
       // lo mismo que ya teníamos para ese número — que es la mayoría de las veces.
@@ -548,12 +573,22 @@ export default function InboxPage() {
     }
   }
 
-  // ── Lista de conversaciones: carga inicial + poll de respaldo lento ──────
+  // ── Lista de conversaciones de TODOS los números: carga inicial + poll de respaldo
+  // lento — no solo el número activo, porque el selector de números necesita saber si
+  // HAY sin leer en Dealers/Abonados/etc. sin que el agente tenga que entrar a mirar
+  // (ver s24-num-badge más abajo).
   useEffect(() => {
     if (!ssoListo) return
-    cargarConversaciones()
-    const interval = setInterval(cargarConversaciones, POLL_RESPALDO_MS)
+    NUMEROS.forEach((n) => cargarConversaciones(n.id))
+    const interval = setInterval(() => NUMEROS.forEach((n) => cargarConversaciones(n.id)), POLL_RESPALDO_MS)
     return () => clearInterval(interval)
+  }, [ssoListo, cargarConversaciones])
+
+  // Al cambiar de número activo, refrescar ESE ya mismo — no esperar al próximo poll de
+  // fondo (que cubre a todos, pero cada 45s).
+  useEffect(() => {
+    if (!ssoListo) return
+    cargarConversaciones(numeroActivo)
   }, [ssoListo, numeroActivo, cargarConversaciones])
 
   // Plantillas rápidas del número activo — no cambian seguido, alcanza con recargar al
@@ -651,7 +686,7 @@ export default function InboxPage() {
     el.scrollTop = el.scrollHeight
   }, [])
 
-  // ── Tiempo real: una sola conexión SSE, reacciona a eventos del número activo ─
+  // ── Tiempo real: una sola conexión SSE, reacciona a eventos de CUALQUIER número ─
   useEffect(() => {
     if (!ssoListo) return
 
@@ -659,8 +694,12 @@ export default function InboxPage() {
     es.onmessage = (event) => {
       try {
         const evento = JSON.parse(event.data)
-        if (evento?.numero !== numeroActivoRef.current) return
-        cargarConversaciones()
+        if (!evento?.numero) return
+        // La lista de ese número se refresca siempre (aunque no sea el activo) — es lo
+        // que mantiene al día el badge de "sin leer" en el selector de números. El resto
+        // (hilo abierto, agenda) solo aplica si es el número que se está mirando ahora.
+        cargarConversaciones(evento.numero)
+        if (evento.numero !== numeroActivoRef.current) return
         if (seleccionadaIdRef.current) cargarMensajes(seleccionadaIdRef.current)
         // La agenda de contactos también reacciona a mensajes nuevos del número activo
         // (un contacto nuevo se agrega solo a la agenda de Kapso apenas escribe) — ver
@@ -1091,6 +1130,7 @@ export default function InboxPage() {
                 <span className="s24-num-ico"><n.Icono /></span>
                 <span className="name">{n.nombre}</span>
               </span>
+              {noLeidosDe(n.id) > 0 && <span className="s24-num-badge">{noLeidosDe(n.id)}</span>}
             </button>
           ))}
 
@@ -1252,7 +1292,10 @@ export default function InboxPage() {
                     {c.estado === 'asignada' && <span className="s24-chip lock">🔒 {c.asignadaA?.nombre}</span>}
                     {c.estado === 'cerrada' && <span className="s24-chip closed">Cerrada</span>}
                     {c.estado !== 'asignada' && c.ultimoAgente && (
-                      <span className="s24-chip agent">👤 {c.ultimoAgente.nombre}</span>
+                      <span className="s24-chip agent">
+                        {c.ultimoAgente.nombre}
+                        {c.ultimoAgenteEn && ahora !== null && ` · ${tiempoRelativo(c.ultimoAgenteEn, ahora)}`}
+                      </span>
                     )}
                   </div>
                 </button>

@@ -18,6 +18,9 @@ export const conversacionesStandalone = pgTable('conversaciones_standalone', {
   // por última vez aunque ya esté libre.
   ultimoAgenteId: text('ultimo_agente_id'),
   ultimoAgenteNombre: text('ultimo_agente_nombre'),
+  // Cuándo tomó/recibió la conversación ese último agente — sin esto, el chip "Atendida
+  // por X" no podía mostrar hace cuánto fue (el agente pidió verlo, ver conversación).
+  ultimoAgenteEn: timestamp('ultimo_agente_en'),
   // "Leído" es una propiedad de la conversación, no de quién la mira — cualquier agente
   // que la abra la marca como vista para todos (ver docs/ARCHITECTURE.md §26, antes esto
   // vivía solo en localStorage y no se sincronizaba entre navegadores/agentes).

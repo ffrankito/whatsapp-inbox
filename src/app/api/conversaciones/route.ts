@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
       estado: c.estado,
       asignadaA: c.asignadaA,
       ultimoAgente: c.ultimoAgente,
+      ultimoAgenteEn: c.ultimoAgenteEn,
       vistoHastaMensajeId: c.vistoHastaMensajeId,
     }))
     return NextResponse.json({ conversations })

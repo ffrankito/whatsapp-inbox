@@ -1,0 +1,1 @@
+ALTER TABLE "conversaciones_standalone" ADD COLUMN "ultimo_agente_en" timestamp;
