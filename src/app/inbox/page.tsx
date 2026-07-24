@@ -217,6 +217,20 @@ export default function InboxPage() {
   )
   const [seleccionadaId, setSeleccionadaId] = useState<string | null>(() => leerNavGuardada().seleccionadaId ?? null)
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
+  // Detecta el cambio de conversación DURANTE el render (patrón oficial de React para
+  // "resetear estado cuando cambia una prop/id"), no en un useEffect — un efecto corre
+  // recién después de que el navegador ya pintó, así que alcanzaba a pintarse un frame
+  // real con los mensajes del chat VIEJO pero con el conversacionId del chat NUEVO ya
+  // seleccionado. En ese frame, <img>/<video> de esos mensajes viejos disparaban pedidos
+  // a /api/adjunto/proxy con ese conversacionId nuevo + un mensajeId que no le pertenece
+  // → 404 real (bug reportado en producción). Ajustar el estado acá, en el cuerpo del
+  // render, hace que React descarte ese render y vuelva a renderizar antes de pintar
+  // nada, así que ese frame con datos cruzados nunca llega a existir.
+  const [mensajesLimpiosPara, setMensajesLimpiosPara] = useState<string | null>(null)
+  if (seleccionadaId !== mensajesLimpiosPara) {
+    setMensajesLimpiosPara(seleccionadaId)
+    setMensajes([])
+  }
   const [texto, setTexto] = useState('')
   const [archivoAdj, setArchivoAdj] = useState<File | null>(null)
   const [nota, setNota] = useState('')
@@ -558,14 +572,9 @@ export default function InboxPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTexto('')
     setArchivoAdj(null)
-    // Limpiar siempre (no solo cuando no hay conversación elegida) — si no, al cambiar
-    // de chat A a chat B los mensajes de A quedan visibles hasta que termine de cargar
-    // B (fetch async), y por un instante se renderiza el hilo VIEJO con la identidad
-    // (conversacionId) del chat NUEVO ya seleccionada — eso hace, por ejemplo, que el
-    // proxy de adjuntos pida un mensaje real pero con el conversacionId de otro chat y
-    // tire 404. También hacía que el scroll-al-final calculara sobre contenido que no
-    // era el del chat recién abierto.
-    setMensajes([])
+    // La limpieza de `mensajes` al cambiar de conversación pasó a hacerse durante el
+    // render (ver mensajesLimpiosPara más arriba) — acá solo quedan los efectos
+    // colaterales de verdad (pedir el hilo nuevo, marcar visto, avisar leído, poll).
     if (!seleccionadaId) return
     cargarMensajes(seleccionadaId)
     marcarVista(seleccionadaId, conversacionesRef.current.find((c) => c.id === seleccionadaId)?.lastMessageId)
