@@ -1851,8 +1851,13 @@ function Agenda({
   // todo de nuevo por cada letra tipeada, y como esto ahora trae TODAS las páginas (ver
   // el fix de paginación), tipear se sentía carísimo/lento.
   const cargarContactos = useCallback(
-    (numeroPedido: NumeroId) => {
-      setCargando(true)
+    // mostrarCarga=false para refrescos de fondo (refreshSignal, un mensaje nuevo por
+    // número activo): antes se ponía cargando=true SIEMPRE, lo que ocultaba la lista
+    // completa en cada mensaje que llegaba — con un número activo, se sentía como que
+    // la agenda "se recarga todo el tiempo". La carga inicial (cambio de número) sí
+    // muestra el estado de carga, porque ahí no hay nada previo que mostrar.
+    (numeroPedido: NumeroId, mostrarCarga = true) => {
+      if (mostrarCarga) setCargando(true)
       setError(false)
       const params = new URLSearchParams({ numero: numeroPedido })
       fetch(`/api/contactos?${params.toString()}`, { headers: headersConAgente() })
@@ -1904,7 +1909,7 @@ function Agenda({
   useEffect(() => {
     if (prevRefreshSignalRef.current === refreshSignal) return
     prevRefreshSignalRef.current = refreshSignal
-    cargarContactos(numero)
+    cargarContactos(numero, false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshSignal])
 
